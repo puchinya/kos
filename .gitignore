@@ -161,3 +161,21 @@ pip-log.txt
 
 # Mac crap
 .DS_Store
+
+# uVison
+*.d
+*.o
+*.lst
+*.__i
+*.crf
+*.hex
+*.uvgui.*
+*.lnp
+*.map
+*.sct
+*.tra
+*.plg
+*.dep
+*.uvopt
+*.axf
+*.htm
