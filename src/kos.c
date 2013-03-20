@@ -1,6 +1,5 @@
 
-#include "kos.h"
-#include "mcu.h"
+#include "kos_local.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -8,118 +7,55 @@
 
 extern void KOS_INIT_TSK(void);
 
-#define KOS_ARRAY_LEN(n)	(sizeof(n)/sizeof((n)[0]));
-
-typedef struct kos_list_t kos_list_t;
-typedef struct kos_tcb_t kos_tcb_t;
-typedef struct kos_sem_cb_t kos_sem_cb_t;
-typedef struct kos_flg_cb_t kos_flg_cb_t;
-typedef struct kos_cyc_cb_t kos_cyc_cb_t;
-
-#define kos_lock		__disable_irq()
-#define kos_unlock	__enable_irq()
 #define kos_set_pend_sv()	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
-#ifdef KOS_ENABLE_PENDSV_SCHEDULE
-#define kos_run_schedule()	if(!s_dsp) { kos_set_pend_sv(); }
-#else
-#define kos_run_schedule()	kos_schedule_nolock()
-#endif
 
-struct kos_list_t {
-	kos_list_t	*next, *prev;
-};
+/*-----------------------------------------------------------------------------
+	グローバル変数定義
+-----------------------------------------------------------------------------*/
+kos_tcb_t	*g_kos_cur_tcb;							/* execution task control block */
+kos_dinh_t	g_kos_dinh_list[KOS_MAX_INTNO + 1];
+kos_list_t	g_kos_rdy_que[KOS_MAX_PRI];				/* レディーキュー */
+kos_tcb_t	g_kos_tcb_inst[KOS_MAX_TSK];
+kos_tcb_t	*g_kos_tcb[KOS_MAX_TSK];
+kos_sem_cb_t *g_kos_sem_cb[KOS_MAX_SEM];
+kos_flg_cb_t *g_kos_flg_cb[KOS_MAX_FLG];
+kos_cyc_cb_t *g_kos_cyc_cb[KOS_MAX_CYC];
 
-
-#undef KOS_TCB_HAS_WAIT_INFO
-
-typedef union {
-#if defined(KOS_CFG_SPT_FLG) && defined(KOS_CFG_SPT_FLG_WMUL)
-	struct {
-		kos_mode_t		wfmode;
-		kos_flgptn_t	waiptn;
-		kos_flgptn_t	*relptn;	/* 待ち解除されたときのビットパターン */
-	} flg;
-#undef KOS_TCB_HAS_WAIT_INFO
-#define KOS_TCB_HAS_WAIT_INFO
-#endif
-	int	dummy;
-} kos_tcb_wait_info_t;
-
-struct kos_tcb_t {
-	kos_list_t					wait_list;	/* 待ち要因に対してつなぐリスト */
-	kos_list_t					tmo_list;		/* タイムアウトのためにつなぐリスト */
-	void								*sp;
-	kos_id_t						id;
-	const kos_ctsk_t		*ctsk;
-	kos_rtsk_t					st;
-#ifdef KOS_TCB_HAS_WAIT_INFO
-	kos_tcb_wait_info_t	wait_info;
-#endif
-	kos_er_t						rel_wai_er;
-};
-
-struct kos_sem_cb_t {
-	const kos_csem_t	*csem;
-	kos_uint_t				semcnt;
-	kos_list_t				wait_tsk_list;
-};
-
-struct kos_flg_cb_t {
-	const kos_cflg_t	*cflg;
-	kos_flgptn_t			flgptn;
-	kos_list_t				wait_tsk_list;
-#ifndef KOS_CFG_SPT_FLG_WMUL
-	kos_mode_t				wfmode;
-	kos_mode_t				waiptn;
-	kos_flgptn_t			*relptn;
-#endif
-};
-
-struct kos_cyc_cb_t {
-	kos_list_t				list;
-	const kos_ccyc_t	*ccyc;
-	kos_rcyc_t				st;
-};
+const kos_uint_t g_kos_max_tsk = KOS_MAX_TSK;
+const kos_uint_t g_kos_max_sem = KOS_MAX_SEM;
+const kos_uint_t g_kos_max_flg = KOS_MAX_FLG;
+const kos_uint_t g_kos_max_cyc = KOS_MAX_CYC;
+const kos_uint_t g_kos_max_pri = KOS_MAX_PRI;
+const kos_uint_t g_kos_max_intno = KOS_MAX_INTNO;
 
 /*-----------------------------------------------------------------------------
 	ファイル内変数定義
 -----------------------------------------------------------------------------*/
-kos_tcb_t *s_cur_tcb;	/* 実行中のタスクコントロールブロック */
-kos_tcb_t *s_from_tcb;
-kos_tcb_t *s_to_tcb;
-static kos_tcb_t *s_tcb[KOS_MAX_TSK];
-static kos_sem_cb_t *s_sem_cb[KOS_MAX_SEM];
-static kos_flg_cb_t *s_flg_cb[KOS_MAX_FLG];
-static kos_cyc_cb_t *s_cyc_cb[KOS_MAX_CYC];
-static kos_list_t s_rdy_que[KOS_MAX_PRI];	/* レディーキュー */
 static kos_systim_t s_systim;				/* システム時刻 */
-static kos_list_t s_tmo_wait_list;	/* タイムアウト待ちのタスクのリスト */
+static kos_list_t s_tmo_wait_list;			/* タイムアウト待ちのタスクのリスト */
 static kos_list_t s_cyc_list;				/* アクティブな周期ハンドラのリスト */
-static kos_bool_t s_dsp;						/* ディスパッチ禁止状態 */
-static kos_dinh_t s_dinh_list[47];
+static kos_bool_t s_dsp;					/* ディスパッチ禁止状態 */
 
 /*-----------------------------------------------------------------------------
 	ファイル内関数プロトタイプ宣言
 -----------------------------------------------------------------------------*/
 void kos_schedule_nolock(void);
-static kos_er_t kos_wait_nolock(kos_tcb_t *tcb);
-static void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
+void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
 static void kos_switch_ctx(void **bk_sp, void *new_sp);
 static void kos_iswitch_ctx(void **bk_sp, void *new_sp);
-static int kos_find_null(void **a, int len);
 void kos_set_ctx(void *new_sp);
 
-static void *kos_malloc(kos_size_t size)
+void *kos_malloc(kos_size_t size)
 {
 	return malloc(size);
 }
 
-static void kos_free(void *p)
+void kos_free(void *p)
 {
 	free(p);
 }
 
-static int kos_find_null(void **a, int len)
+int kos_find_null(void **a, int len)
 {
 	int i;
 	for(i = 0; i < len; i++) {
@@ -133,56 +69,17 @@ static int kos_find_null(void **a, int len)
 -----------------------------------------------------------------------------*/
 static KOS_INLINE kos_tcb_t *kos_get_tcb(kos_id_t tskid)
 {
-	return s_tcb[tskid-1];
-}
-
-static KOS_INLINE kos_sem_cb_t *kos_get_sem_cb(kos_id_t semid)
-{
-	return s_sem_cb[semid-1];
+	return g_kos_tcb[tskid-1];
 }
 
 static KOS_INLINE kos_flg_cb_t *kos_get_flg_cb(kos_id_t flgid)
 {
-	return s_flg_cb[flgid-1];
+	return g_kos_flg_cb[flgid-1];
 }
 
 static KOS_INLINE kos_cyc_cb_t *kos_get_cyc_cb(kos_id_t cycid)
 {
-	return s_cyc_cb[cycid-1];
-}
-
-static KOS_INLINE void kos_list_init(kos_list_t *l)
-{
-	l->next = l;
-	l->prev = l;
-}
-
-static KOS_INLINE void kos_list_insert_prev(kos_list_t *l, kos_list_t *n)
-{
-	l->prev->next = n;
-	n->prev = l->prev;
-	n->next = l;
-	l->prev = n;
-}
-
-static KOS_INLINE void kos_list_remove(kos_list_t *l)
-{
-	l->prev->next = l->next;
-	l->next->prev = l->prev;
-}
-
-static KOS_INLINE int kos_list_empty(kos_list_t *l)
-{
-	return l == l->next;
-}
-
-kos_er_id_t kos_alloc_tid(void)
-{
-	return 1;
-}
-
-void kos_free_tid(kos_id_t tid)
-{
+	return g_kos_cyc_cb[cycid-1];
 }
 
 void kos_schedule_nolock(void)
@@ -194,7 +91,7 @@ void kos_schedule_nolock(void)
 	if(s_dsp) return;
 	
 	/* 探索する上限優先度を決める */	
-	cur_tcb = s_cur_tcb;
+	cur_tcb = g_kos_cur_tcb;
 	if(cur_tcb != KOS_NULL) {
 		if(cur_tcb->st.tskstat == KOS_TTS_RUN) {
 			maxpri = cur_tcb->st.tskpri-1;
@@ -206,7 +103,7 @@ void kos_schedule_nolock(void)
 	}
 	
 	/* レディキューを探索 */
-	rdy_que = s_rdy_que;
+	rdy_que = g_kos_rdy_que;
 	next_tcb = NULL;
 	for(i = 0; i < maxpri; i++) {
 		if(!kos_list_empty(&rdy_que[i])) {
@@ -229,7 +126,7 @@ void kos_schedule_nolock(void)
 	kos_list_remove((kos_list_t *)next_tcb);
 	/* 実行状態へ変更 */
 	next_tcb->st.tskstat = KOS_TTS_RUN;
-	s_cur_tcb = next_tcb;
+	g_kos_cur_tcb = next_tcb;
 	
 	/* コンテキストスイッチ */
 	if(cur_tcb != KOS_NULL) {
@@ -301,10 +198,10 @@ __asm void kos_iswitch_ctx(void **bk_sp, void *new_sp)
 static void kos_tsk_entry(kos_tcb_t *tcb)
 {
 	for(;;) {
-		((void (*)(kos_vp_int_t))tcb->ctsk->task)(tcb->ctsk->exinf);
+		((void (*)(kos_vp_int_t))tcb->ctsk.task)(tcb->ctsk.exinf);
 		kos_lock;
 		tcb->st.tskstat = KOS_TTS_DMT;
-		kos_run_schedule();
+		kos_schedule();
 		kos_unlock;
 	}
 }
@@ -340,7 +237,7 @@ __asm void kos_set_ctx(void *new_sp)
 static void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
 {
 	tcb->st.tskstat = KOS_TTS_RDY;
-	kos_list_insert_prev(&s_rdy_que[tcb->st.tskpri-1], (kos_list_t *)tcb);
+	kos_list_insert_prev(&g_kos_rdy_que[tcb->st.tskpri-1], (kos_list_t *)tcb);
 }
 
 /*-----------------------------------------------------------------------------
@@ -349,34 +246,25 @@ static void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
 kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 {
 	kos_tcb_t *tcb;
-	kos_ctsk_t *ctsk_bk;
 	int empty_index;
 	uint32_t *sp;
 	kos_er_id_t er_id;
 	
 	kos_lock;
 	
-	tcb = (kos_tcb_t *)kos_malloc(sizeof(kos_tcb_t) + sizeof(kos_ctsk_t));
-	if(!tcb) {
-		er_id = KOS_E_NOMEM;
-		goto end;
-	}
-	
-	empty_index = kos_find_null((void **)s_tcb, KOS_MAX_TSK);
+	empty_index = kos_find_null((void **)g_kos_tcb, g_kos_max_tsk);
 	if(empty_index < 0) {
 		er_id = KOS_E_NOID;
-		kos_free(tcb);
 		goto end;
 	}
-	s_tcb[empty_index] = tcb;
 	
-	ctsk_bk = (kos_ctsk_t *)((uint8_t *)tcb + sizeof(kos_tcb_t));
-	*ctsk_bk = *ctsk;
-	tcb->ctsk = ctsk_bk;
+	tcb = &g_kos_tcb_inst[empty_index];
+	g_kos_tcb[empty_index] = tcb;
 	
+	tcb->ctsk			= *ctsk;
 	tcb->st.tskstat		= KOS_TTS_DMT;
-	tcb->st.tskpri		= ctsk_bk->itskpri;
-	tcb->st.tskbpri		= ctsk_bk->itskpri;
+	tcb->st.tskpri		= ctsk->itskpri;
+	tcb->st.tskbpri		= ctsk->itskpri;
 	tcb->st.tskwait		= 0;
 	tcb->st.wobjid		= 0;
 	tcb->st.lefttmo		= 0;
@@ -385,25 +273,25 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 	tcb->st.suscnt		= 0;
 	tcb->id = empty_index + 1;
 #ifdef KOS_CFG_STKCHK
-	memset(tcb->ctsk->stk, 0xCC, tcb->ctsk->stksz);
+	memset(tcb->ctsk.stk, 0xCC, tcb->ctsk.stksz);
 #endif
-	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk->stk + tcb->ctsk->stksz - 4 - 16*4);
-	sp[0] = 0;																		// R4
-	sp[1] = 0;																		// R5
-	sp[2] = 0;																		// R6
-	sp[3] = 0;																		// R7
-	sp[4] = 0;																		// R8
-	sp[5] = 0;																		// R9
-	sp[6] = 0;																		// R10
-	sp[7] = 0;																		// R11
-	sp[8] = (uint32_t)tcb;												// R0
-	sp[9] = 0;																		// R1
-	sp[10] = 0;																		// R2
-	sp[11] = 0;																		// R3
-	sp[12] = 0;																		// R12
-	sp[13] = (uint32_t)kos_tsk_entry;							// LR
-	sp[14] = (uint32_t)kos_tsk_entry;							// PC
-	sp[15] = 1<<24;																// PSR
+	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 4 - 16*4);
+	sp[0] = 0;								// R4
+	sp[1] = 0;								// R5
+	sp[2] = 0;								// R6
+	sp[3] = 0;								// R7
+	sp[4] = 0;								// R8
+	sp[5] = 0;								// R9
+	sp[6] = 0;								// R10
+	sp[7] = 0;								// R11
+	sp[8] = (uint32_t)tcb;					// R0
+	sp[9] = 0;								// R1
+	sp[10] = 0;								// R2
+	sp[11] = 0;								// R3
+	sp[12] = 0;								// R12
+	sp[13] = (uint32_t)kos_tsk_entry;		// LR
+	sp[14] = (uint32_t)kos_tsk_entry;		// PC
+	sp[15] = 1<<24;							// PSR
 	
 	kos_unlock;
 end:
@@ -418,7 +306,7 @@ kos_er_t kos_act_tsk(kos_id_t tskid)
 	kos_tcb_t *tcb;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(tskid > KOS_MAX_TSK)
+	if(tskid > g_kos_max_tsk)
 		return KOS_E_ID;
 #endif
 	
@@ -427,7 +315,7 @@ kos_er_t kos_act_tsk(kos_id_t tskid)
 	kos_lock;
 	
 	if(tskid == KOS_TSK_SELF) {
-		tcb = s_cur_tcb;
+		tcb = g_kos_cur_tcb;
 	} else {
 		tcb = kos_get_tcb(tskid);
 		if(!tcb) {
@@ -438,7 +326,7 @@ kos_er_t kos_act_tsk(kos_id_t tskid)
 	
 	if(tcb->st.tskstat == KOS_TTS_DMT) {
 		kos_rdy_tsk_nolock(tcb);
-		kos_run_schedule();
+		kos_schedule();
 	} else {
 		if(tcb->st.actcnt >= KOS_MAX_ACT_CNT) {
 			er = KOS_E_QOVR;
@@ -460,14 +348,24 @@ kos_er_uint_t kos_can_act(kos_id_t tskid)
 	kos_tcb_t *tcb;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(tskid > KOS_MAX_TSK)
-		return KOS_E_ID;
+	if(tskid > g_kos_max_tsk)
+		return (kos_er_uint_t)KOS_E_ID;
 #endif
 	
 	er = KOS_E_OK;
 	
 	kos_lock;
 
+	if(tskid == KOS_TSK_SELF) {
+		tcb = g_kos_cur_tcb;
+	} else {
+		tcb = kos_get_tcb(tskid);
+		if(!tcb) {
+			er = (kos_er_uint_t)KOS_E_NOEXS;
+			goto end;
+		}
+	}
+	
 	er = (kos_er_uint_t)tcb->st.actcnt;
 	tcb->st.actcnt = 0;
 	
@@ -483,9 +381,9 @@ kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
 	kos_tcb_t *tcb;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(tskid > KOS_MAX_TSK)
+	if(tskid > g_kos_max_tsk)
 		return KOS_E_ID;
-	if(tskpri > KOS_MAX_PRI)
+	if(tskpri > g_kos_max_pri)
 		return KOS_E_PAR;
 #endif
 	
@@ -494,7 +392,7 @@ kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
 	kos_lock;
 	
 	if(tskid == KOS_TSK_SELF) {
-		tcb = s_cur_tcb;
+		tcb = g_kos_cur_tcb;
 	} else {
 		tcb = kos_get_tcb(tskid);
 		if(!tcb) {
@@ -514,7 +412,7 @@ kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
 	
 	tcb->st.tskpri = tskpri;
 	
-	kos_run_schedule();
+	kos_schedule();
 	
 end:
 	kos_unlock;
@@ -528,7 +426,7 @@ kos_er_t kos_get_pri(kos_id_t tskid, kos_pri_t *p_tskpri)
 	kos_tcb_t *tcb;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(tskid > KOS_MAX_TSK)
+	if(tskid > g_kos_max_tsk)
 		return KOS_E_ID;
 	if(p_tskpri == KOS_NULL)
 		return KOS_E_PAR;
@@ -539,7 +437,7 @@ kos_er_t kos_get_pri(kos_id_t tskid, kos_pri_t *p_tskpri)
 	kos_lock;
 	
 	if(tskid == KOS_TSK_SELF) {
-		tcb = s_cur_tcb;
+		tcb = g_kos_cur_tcb;
 	} else {
 		tcb = kos_get_tcb(tskid);
 		if(!tcb) {
@@ -567,7 +465,7 @@ kos_er_t kos_rel_wai(kos_id_t tskid)
 	kos_tcb_t *tcb;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(tskid > KOS_MAX_TSK)
+	if(tskid > g_kos_max_tsk)
 		return KOS_E_ID;
 #endif
 	
@@ -576,7 +474,7 @@ kos_er_t kos_rel_wai(kos_id_t tskid)
 	kos_lock;
 	
 	if(tskid == KOS_TSK_SELF) {
-		tcb = s_cur_tcb;
+		tcb = g_kos_cur_tcb;
 	} else {
 		tcb = kos_get_tcb(tskid);
 		if(!tcb) {
@@ -591,7 +489,7 @@ kos_er_t kos_rel_wai(kos_id_t tskid)
 	}
 	
 	kos_cancel_wait_nolock(tcb, KOS_E_RLWAI);
-	kos_run_schedule();
+	kos_schedule();
 	
 end:
 	kos_unlock;
@@ -599,7 +497,7 @@ end:
 	return er;
 }
 
-static void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
+void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
 {
 	/* エラーコードを設定 */
 	tcb->rel_wai_er = er;
@@ -624,6 +522,15 @@ static void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
 	}
 }
 
+void kos_schedule(void)
+{
+#ifdef KOS_ENABLE_PENDSV_SCHEDULE
+	if(!s_dsp) { kos_set_pend_sv(); }
+#else
+	kos_schedule_nolock()
+#endif
+}
+
 /*
  *	同期・通信オブジェクト削除API用の待ち解除処理です
  *	リスト中のすべてのタスクに対して下記を行います。
@@ -631,7 +538,7 @@ static void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
  *	2.待ち解除のエラーコードをKOS_E_DLTに設定
  *	3.待ちオブジェクトをなし(=0)にする
  */
-static void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list)
+void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list)
 {
 	const kos_list_t *l;
 	for(l = wait_tsk_list->next; l != wait_tsk_list; l = l->next)
@@ -653,191 +560,6 @@ static void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list)
 	}
 }
 
-/*-----------------------------------------------------------------------------
-	同期・通信機能/セマフォ
------------------------------------------------------------------------------*/
-#ifdef KOS_CFG_SPT_SEM
-kos_er_id_t kos_cre_sem(const kos_csem_t *pk_csem)
-{
-	kos_sem_cb_t *cb;
-	kos_csem_t *csem_bk;
-	int empty_index;
-	kos_er_id_t er_id;
-	
-	kos_lock;
-	
-	cb = (kos_sem_cb_t *)kos_malloc(sizeof(kos_sem_cb_t) + sizeof(kos_csem_t));
-	if(!cb) {
-		er_id = KOS_E_NOMEM;
-		goto end;
-	}
-	empty_index = kos_find_null((void **)s_sem_cb, KOS_MAX_SEM);
-	if(empty_index < 0) {
-		er_id = KOS_E_NOID;
-		kos_free(cb);
-		goto end;
-	}
-	s_sem_cb[empty_index] = cb;
-	
-	csem_bk = (kos_csem_t *)((uint8_t *)cb + sizeof(kos_sem_cb_t));
-	*csem_bk = *pk_csem;
-	cb->csem = csem_bk;
-	
-	cb->semcnt = csem_bk->isemcnt;
-	kos_list_init(&cb->wait_tsk_list);
-	
-	kos_unlock;
-end:
-	er_id = empty_index + 1;
-	
-	return er_id;
-}
-
-kos_er_t kos_del_sem(kos_id_t semid)
-{
-	kos_sem_cb_t *cb;
-	kos_er_t er;
-	
-#ifdef KOS_CFG_ENA_PAR_CHK
-	if(semid > KOS_MAX_SEM || semid == 0)
-		return KOS_E_ID;
-#endif
-	er = KOS_E_OK;
-	kos_lock;
-	cb = kos_get_sem_cb(semid);
-	if(cb == KOS_NULL) {
-		er = KOS_E_NOEXS;
-		goto end;
-	}
-	
-	/* 待ち行列にいるタスクの待ちを解除 */
-	kos_cancel_wait_all_for_delapi_nolock(&cb->wait_tsk_list);
-	/* コントロールブロックのメモリを開放 */
-	kos_free(cb);
-	/* ID=>CB変換をクリア */
-	s_sem_cb[semid-1] = KOS_NULL;
-	
-end:
-	kos_unlock;
-	
-	return er;
-}
-
-kos_er_t kos_twai_sem(kos_id_t semid, kos_tmo_t tmout)
-{
-	kos_sem_cb_t *cb;
-	kos_er_t er;
-	
-#ifdef KOS_CFG_ENA_PAR_CHK
-	if(semid > KOS_MAX_SEM || semid == 0)
-		return KOS_E_ID;
-#endif
-	
-	er = KOS_E_OK;
-	
-	kos_lock;
-	
-	cb = kos_get_sem_cb(semid);
-	if(cb == KOS_NULL) {
-		er = KOS_E_NOEXS;
-		goto end;
-	}
-	if(cb->semcnt > 0) {
-		cb->semcnt--;
-	} else {
-		if(tmout == KOS_TMO_POL) {
-			er = KOS_E_TMOUT;
-		} else {
-			kos_tcb_t *tcb = s_cur_tcb;
-			kos_list_insert_prev(&cb->wait_tsk_list, &tcb->wait_list);
-			tcb->st.lefttmo = tmout;
-			tcb->st.wobjid = semid;
-			tcb->st.tskwait = KOS_TTW_SEM;
-			er = kos_wait_nolock(tcb);
-		}
-	}
-end:
-	kos_unlock;
-	
-	return er;
-}
-
-kos_er_t kos_sig_sem(kos_id_t semid)
-{
-	kos_sem_cb_t *cb;
-	kos_er_t er;
-	
-#ifdef KOS_CFG_ENA_PAR_CHK
-	if(semid > KOS_MAX_SEM || semid == 0)
-		return KOS_E_ID;
-#endif
-	
-	er = KOS_E_OK;
-	
-	kos_lock;
-	
-	cb = kos_get_sem_cb(semid);
-	if(cb == KOS_NULL) {
-		er = KOS_E_NOEXS;
-		goto end;
-	}
-	
-	if(kos_list_empty(&cb->wait_tsk_list)) {
-		if(cb->semcnt < cb->csem->maxsem) {
-			cb->semcnt++;
-		} else {
-			er = KOS_E_QOVR;
-			goto end;
-		}
-	} else {
-		kos_tcb_t *tcb = (kos_tcb_t *)cb->wait_tsk_list.next;
-		
-		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_run_schedule();
-	}
-end:
-	kos_unlock;
-	
-	return er;
-}
-
-kos_er_t kos_ref_sem(kos_id_t semid, kos_rsem_t *pk_rsem)
-{
-	kos_sem_cb_t *cb;
-	kos_er_t er;
-	
-#ifdef KOS_CFG_ENA_PAR_CHK
-	if(semid > KOS_MAX_SEM || semid == 0)
-		return KOS_E_ID;
-	if(pk_rsem == KOS_NULL)
-		return KOS_E_PAR;
-#endif
-	
-	er = KOS_E_OK;
-	
-	kos_lock;
-	
-	cb = kos_get_sem_cb(semid);
-	if(cb == KOS_NULL) {
-		er = KOS_E_NOEXS;
-		goto end;
-	}
-	
-	if(kos_list_empty(&cb->wait_tsk_list)) {
-		pk_rsem->wtskid = KOS_TSK_NONE;
-	} else {
-		kos_tcb_t *tcb = (kos_tcb_t *)cb->wait_tsk_list.next;
-		pk_rsem->wtskid = tcb->id;
-	}
-	
-	pk_rsem->semcnt = cb->semcnt;
-	
-end:
-	kos_unlock;
-	
-	return er;
-}
-#endif
 
 /*-----------------------------------------------------------------------------
 	同期・通信機能/イベントフラグ
@@ -857,14 +579,14 @@ kos_er_id_t kos_cre_flg(const kos_cflg_t *pk_cflg)
 		er_id = KOS_E_NOMEM;
 		goto end;
 	}
-	empty_index = kos_find_null((void **)s_flg_cb, KOS_MAX_FLG);
+	empty_index = kos_find_null((void **)g_kos_flg_cb, KOS_MAX_FLG);
 	if(empty_index < 0) {
 		er_id = KOS_E_NOID;
 		kos_free(cb);
 		goto end;
 	}
 	
-	s_flg_cb[empty_index] = cb;
+	g_kos_flg_cb[empty_index] = cb;
 	
 	cflg_bk = (kos_cflg_t *)((uint8_t *)cb + sizeof(kos_flg_cb_t));
 	*cflg_bk = *pk_cflg;
@@ -885,7 +607,7 @@ kos_er_t kos_del_flg(kos_id_t flgid)
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(flgid > KOS_MAX_FLG || flgid == 0)
+	if(flgid > g_kos_max_flg || flgid == 0)
 		return KOS_E_ID;
 #endif
 	er = KOS_E_OK;
@@ -901,7 +623,7 @@ kos_er_t kos_del_flg(kos_id_t flgid)
 	/* コントロールブロックのメモリを開放 */
 	kos_free(cb);
 	/* ID=>CB変換をクリア */
-	s_sem_cb[flgid-1] = KOS_NULL;
+	g_kos_sem_cb[flgid-1] = KOS_NULL;
 	
 end:
 	kos_unlock;
@@ -915,7 +637,7 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(flgid > KOS_MAX_FLG || flgid == 0)
+	if(flgid > g_kos_max_flg || flgid == 0)
 		return KOS_E_ID;
 #endif
 	
@@ -962,7 +684,7 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 		}
 		
 		if(do_schedule) {
-			kos_run_schedule();
+			kos_schedule();
 		}
 #else
 		if(cb->wfmode == KOS_TWF_ANDW) {
@@ -978,7 +700,7 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 			cb->flgptn = 0;
 		}
 		kos_cancel_wait_nolock((kos_tcb_t *)cb->wait_tsk_list.next, KOS_E_OK);
-		kos_run_schedule();
+		kos_schedule();
 #endif
 	}
 
@@ -994,7 +716,7 @@ kos_er_t kos_clr_flg(kos_id_t flgid, kos_flgptn_t clrptn)
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(flgid > KOS_MAX_FLG || flgid == 0)
+	if(flgid > g_kos_max_flg || flgid == 0)
 		return KOS_E_ID;
 #endif
 	
@@ -1023,7 +745,7 @@ kos_er_t kos_twai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(flgid > KOS_MAX_FLG || flgid == 0)
+	if(flgid > g_kos_max_flg || flgid == 0)
 		return KOS_E_ID;
 	if(waiptn == 0 || (wfmode != KOS_TWF_ANDW && wfmode != KOS_TWF_ORW) ||
 		p_flgptn == KOS_NULL)
@@ -1069,7 +791,7 @@ kos_er_t kos_twai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 	if(tmout == KOS_TMO_POL) {
 		er = KOS_E_TMOUT;
 	} else {
-		kos_tcb_t *tcb = s_cur_tcb;
+		kos_tcb_t *tcb = g_kos_cur_tcb;
 		tcb->st.lefttmo = tmout;
 		tcb->st.wobjid = flgid;
 		tcb->st.tskwait = KOS_TTW_FLG;
@@ -1098,7 +820,7 @@ kos_er_t kos_ref_flg(kos_id_t flgid, kos_rflg_t *pk_rflg)
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(flgid > KOS_MAX_FLG || flgid == 0)
+	if(flgid > g_kos_max_flg || flgid == 0)
 		return KOS_E_ID;
 	if(pk_rflg == KOS_NULL)
 		return KOS_E_PAR;
@@ -1170,13 +892,13 @@ static void kos_init_vars(void)
 {
 	int i;
 	
-	s_cur_tcb = KOS_NULL;
+	g_kos_cur_tcb = KOS_NULL;
 	
-	memset(s_tcb, 0, sizeof(s_tcb));
-	memset(s_cyc_cb, 0, sizeof(s_cyc_cb));
+	memset(g_kos_tcb, 0, sizeof(g_kos_tcb));
+	memset(g_kos_cyc_cb, 0, sizeof(g_kos_cyc_cb));
 	
 	for(i = 0; i < KOS_MAX_PRI; i++) {
-		kos_list_init(&s_rdy_que[i]);
+		kos_list_init(&g_kos_rdy_que[i]);
 	}
 	
 	kos_list_init(&s_tmo_wait_list);
@@ -1196,13 +918,7 @@ static void kos_init_tsks(void)
 
 static void kos_init_irq(void)
 {
-	uint32_t period;
-	
-	period = SystemCoreClock / 100;	
-	SysTick_Config(period);
-	
-//	NVIC_SetPriority(PendSV_IRQn, 255);
-//	NVIC_SetPriority(SysTick_IRQn, 254);
+	kos_arch_setup_systick_handler();
 }
 
 __asm void kos_init_regs(void)
@@ -1225,14 +941,13 @@ void kos_init(void)
 	kos_unlock;
 }
 
-int main(void)
+void kos_start_kernel(void)
 {
 	kos_init();
 	kos_ena_dsp();
-	return 0;
 }
 
-static kos_er_t kos_wait_nolock(kos_tcb_t *tcb)
+kos_er_t kos_wait_nolock(kos_tcb_t *tcb)
 {
 	if(tcb->st.tskwait == KOS_TTS_SUS) {
 		tcb->st.tskstat = KOS_TTS_WAS;
@@ -1244,7 +959,7 @@ static kos_er_t kos_wait_nolock(kos_tcb_t *tcb)
 		kos_list_insert_prev(&s_tmo_wait_list, &tcb->tmo_list);
 	}
 	
-	kos_run_schedule();
+	kos_schedule();
 	kos_unlock;
 	kos_lock;
 	
@@ -1257,7 +972,7 @@ kos_er_t kos_wup_tsk(kos_id_t tskid)
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(tskid > KOS_MAX_TSK)
+	if(tskid > g_kos_max_tsk)
 		return KOS_E_ID;
 #endif
 	
@@ -1266,7 +981,7 @@ kos_er_t kos_wup_tsk(kos_id_t tskid)
 	kos_lock;
 	
 	if(tskid == KOS_TSK_SELF) {
-		tcb = s_cur_tcb;
+		tcb = g_kos_cur_tcb;
 	} else {
 		tcb = kos_get_tcb(tskid);
 		if(tcb == KOS_NULL) {
@@ -1279,7 +994,7 @@ kos_er_t kos_wup_tsk(kos_id_t tskid)
 		tcb->st.tskwait == KOS_TTW_SLP)
 	{
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_run_schedule();
+		kos_schedule();
 	} else if(tcb->st.tskstat == KOS_TTS_DMT) {
 		er = KOS_E_OBJ;
 		goto end;
@@ -1302,7 +1017,7 @@ kos_er_t kos_iwup_tsk(kos_id_t tskid)
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(tskid > KOS_MAX_TSK)
+	if(tskid > g_kos_max_tsk)
 		return KOS_E_ID;
 #endif
 	
@@ -1311,7 +1026,7 @@ kos_er_t kos_iwup_tsk(kos_id_t tskid)
 	kos_lock;
 	
 	if(tskid == KOS_TSK_SELF) {
-		tcb = s_cur_tcb;
+		tcb = g_kos_cur_tcb;
 	} else {
 		tcb = kos_get_tcb(tskid);
 		if(tcb == KOS_NULL) {
@@ -1324,7 +1039,7 @@ kos_er_t kos_iwup_tsk(kos_id_t tskid)
 		tcb->st.tskwait == KOS_TTW_SLP)
 	{
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_run_schedule();
+		kos_schedule();
 	} else if(tcb->st.tskstat == KOS_TTS_DMT) {
 		er = KOS_E_OBJ;
 		goto end;
@@ -1348,7 +1063,7 @@ kos_er_t kos_tslp_tsk(kos_tmo_t tmout)
 	
 	kos_lock;
 	
-	tcb = s_cur_tcb;
+	tcb = g_kos_cur_tcb;
 	
 	if(tcb->st.wupcnt > 0) {
 		tcb->st.wupcnt--;
@@ -1378,7 +1093,7 @@ kos_er_t kos_dly_tsk(kos_reltim_t dlytim)
 	
 	kos_lock;
 	
-	tcb = s_cur_tcb;
+	tcb = g_kos_cur_tcb;
 	
 	tcb->st.lefttmo = dlytim;
 	tcb->st.wobjid = 0;
@@ -1396,7 +1111,6 @@ kos_er_t kos_dly_tsk(kos_reltim_t dlytim)
 
 kos_er_t kos_set_tim(kos_systim_t *p_systim)
 {
-
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(p_systim == KOS_NULL)
 		return KOS_E_PAR;
@@ -1411,7 +1125,6 @@ kos_er_t kos_set_tim(kos_systim_t *p_systim)
 
 kos_er_t kos_get_tim(kos_systim_t *p_systim)
 {
-
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(p_systim == KOS_NULL)
 		return KOS_E_PAR;
@@ -1450,7 +1163,7 @@ kos_er_t kos_isig_tim(void)
 			l = next;
 		}
 		if(do_schedule) {
-			kos_run_schedule();
+			kos_schedule();
 		}
 	}
 	
@@ -1502,13 +1215,13 @@ kos_er_t kos_cre_cyc(const kos_ccyc_t *pk_ccyc)
 		er_id = KOS_E_NOMEM;
 		goto end;
 	}
-	empty_index = kos_find_null((void **)s_cyc_cb, KOS_MAX_CYC);
+	empty_index = kos_find_null((void **)g_kos_cyc_cb, KOS_MAX_CYC);
 	if(empty_index < 0) {
 		er_id = KOS_E_NOID;
 		kos_free(cb);
 		goto end;
 	}
-	s_cyc_cb[empty_index] = cb;
+	g_kos_cyc_cb[empty_index] = cb;
 	
 	ccyc_bk = (kos_ccyc_t *)((uint8_t *)cb + sizeof(kos_cyc_cb_t));
 	*ccyc_bk = *pk_ccyc;
@@ -1537,10 +1250,12 @@ kos_er_t kos_del_cyc(kos_id_t cycid)
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(cycid > KOS_MAX_CYC || cycid == 0)
+	if(cycid > g_kos_max_cyc || cycid == 0)
 		return KOS_E_ID;
 #endif
+	
 	er = KOS_E_OK;
+	
 	kos_lock;
 	cb = kos_get_cyc_cb(cycid);
 	if(cb == KOS_NULL) {
@@ -1557,7 +1272,7 @@ kos_er_t kos_del_cyc(kos_id_t cycid)
 	kos_free(cb);
 	
 	/* ID=>CB変換をクリア */
-	s_cyc_cb[cycid-1] = KOS_NULL;
+	g_kos_cyc_cb[cycid-1] = KOS_NULL;
 	
 end:
 	kos_unlock;
@@ -1571,11 +1286,13 @@ kos_er_t kos_sta_cyc(kos_id_t cycid)
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(cycid > KOS_MAX_CYC || cycid == 0)
+	if(cycid > g_kos_max_cyc || cycid == 0)
 		return KOS_E_ID;
 #endif
 	er = KOS_E_OK;
+	
 	kos_lock;
+	
 	cb = kos_get_cyc_cb(cycid);
 	if(cb == KOS_NULL) {
 		er = KOS_E_NOEXS;
@@ -1598,11 +1315,13 @@ kos_er_t kos_stp_cyc(kos_id_t cycid)
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(cycid > KOS_MAX_CYC || cycid == 0)
+	if(cycid > g_kos_max_cyc || cycid == 0)
 		return KOS_E_ID;
 #endif
 	er = KOS_E_OK;
+	
 	kos_lock;
+	
 	cb = kos_get_cyc_cb(cycid);
 	if(cb == KOS_NULL) {
 		er = KOS_E_NOEXS;
@@ -1626,11 +1345,13 @@ kos_er_t kos_ref_cyc(kos_id_t cycid, kos_rcyc_t *pk_rcyc)
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(cycid > KOS_MAX_CYC || cycid == 0)
+	if(cycid > g_kos_max_cyc || cycid == 0)
 		return KOS_E_ID;
 #endif
 	er = KOS_E_OK;
+	
 	kos_lock;
+	
 	cb = kos_get_cyc_cb(cycid);
 	if(cb == KOS_NULL) {
 		er = KOS_E_NOEXS;
@@ -1649,38 +1370,38 @@ end:
 	システム状態管理機能
 -----------------------------------------------------------------------------*/
 
+/*!
+ *	@brief	get execution task ID
+ */
 kos_er_t kos_get_tid(kos_id_t *p_tskid)
 {
-	kos_er_t er;
-	
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(p_tskid == KOS_NULL)
 		return KOS_E_PAR;
 #endif
 	
-	er = KOS_E_OK;
-	kos_lock;
-	*p_tskid = s_cur_tcb->id;
-	kos_unlock;
-end:
-	return er;
+	//kos_lock;
+	*p_tskid = g_kos_cur_tcb->id;
+	//kos_unlock;
+	
+	return KOS_E_OK;
 }
 
+/*!
+ *	@brief	get execution task ID
+ */
 kos_er_t kos_iget_tid(kos_id_t *p_tskid)
 {
-	kos_er_t er;
-	
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(p_tskid == KOS_NULL)
 		return KOS_E_PAR;
 #endif
 	
-	er = KOS_E_OK;
-	kos_lock;
-	*p_tskid = s_cur_tcb->id;
-	kos_unlock;
-end:
-	return er;
+	//kos_lock;
+	*p_tskid = g_kos_cur_tcb->id;
+	//kos_unlock;
+	
+	return KOS_E_OK;
 }
 
 kos_er_t kos_loc_cpu(void)
@@ -1716,14 +1437,14 @@ kos_er_t kos_dis_dsp(void)
 
 kos_er_t kos_ena_dsp(void)
 {
-	kos_lock;
+	//kos_lock;
 	
 	if(s_dsp) {
 		s_dsp = KOS_FALSE;
-		kos_run_schedule();
+		kos_schedule();
 	}
 	
-	kos_unlock;
+	//kos_unlock;
 	
 	return KOS_E_OK;
 }
@@ -1746,80 +1467,33 @@ kos_bool_t kos_sns_dsp(void)
 -----------------------------------------------------------------------------*/
 kos_er_t kos_def_inh(kos_intno_t intno, const kos_dinh_t *pk_dinh)
 {
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(intno > KOS_MAX_INTNO) {
+		return KOS_E_PAR;
+	}
+	if(pk_dinh) {
+		if(pk_dinh->inthdr == KOS_NULL) {
+			return KOS_E_PAR;
+		}
+	}
+#endif
+	
 	kos_lock;
 	if(pk_dinh) {
-		s_dinh_list[intno] = *pk_dinh;
+		g_kos_dinh_list[intno] = *pk_dinh;
 	} else {
-		s_dinh_list[intno].inthdr = KOS_NULL;
+		g_kos_dinh_list[intno].inthdr = KOS_NULL;
 	}
 	kos_unlock;
 	
 	return KOS_E_OK;
 }
 
-kos_er_t kos_dis_int(kos_intno_t intno)
-{
-	NVIC_DisableIRQ(intno);
-	return KOS_E_OK;
-}
-
-kos_er_t kos_ena_int(kos_intno_t intno)
-{
-	NVIC_EnableIRQ(intno);
-	return KOS_E_OK;
-}
-
-#define KOS_MAKE_IRQ_CODE(funcname, intno) \
-void funcname(void) {\
-	kos_fp_t inthdr;\
-	kos_dinh_t *dinh;\
-	\
-	dinh = &s_dinh_list[intno];\
-	inthdr = dinh->inthdr;\
-	if(inthdr) {\
-		((void(*)(kos_vp_int_t))inthdr)(dinh->exinf);\
-	}\
-	\
-}
-
 /*-----------------------------------------------------------------------------
 	システム割り込みハンドラ
 -----------------------------------------------------------------------------*/
 
-void SysTick_Handler(void)
-{
-	kos_isig_tim();
-}
-
-__asm static void save_regs(void)
-{
-	MRS		R0, PSP
-	STMDB	R0!, {R4-R11}
-	MSR		PSP, R0
-	BX		LR
-}
-
-__asm static void load_regs(void)
-{
-	MRS			R0, PSP
-	LDMIA		R0!, {R4-R11}
-	MSR			PSP, R0
-	BX			LR
-}
-
-#if 0
-void PendSV_Handler(void)
-{
-	/* 割り込みで退避されていないレジスタを退避(R4-R11) */
-	if(s_cur_tcb) {
-		save_regs();
-	}
-	
-	kos_schedule_nolock();
-	
-	load_regs();
-}
-#endif
+/* do schedule */
 __asm void PendSV_Handler(void)
 {
 	extern kos_schedule_nolock
@@ -1838,31 +1512,3 @@ __asm void PendSV_Handler(void)
 	CPSIE		i
 	BX			LR
 }
-
-void HardFault_Handler(void)
-{
-	__NOP();
-}
-
-void MemManage_Handler(void)
-{
-	__NOP();
-}
-
-void BusFault_Handler(void)
-{
-	__NOP();
-}
-
-void UsageFault_Handler(void)
-{
-	__NOP();
-}
-
-/*-----------------------------------------------------------------------------
-	割り込み
------------------------------------------------------------------------------*/
-KOS_MAKE_IRQ_CODE(USB0_Handler, USB0F_IRQn);
-KOS_MAKE_IRQ_CODE(USB0F_Handler, USB0F_USB0H_IRQn);
-KOS_MAKE_IRQ_CODE(USB1_Handler, USB1F_IRQn);
-KOS_MAKE_IRQ_CODE(USB1F_Handler, USB1F_USB1H_IRQn);

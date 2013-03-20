@@ -11,9 +11,7 @@
 #define KOS_MAX_SEM			16
 #define KOS_MAX_FLG			16
 #define KOS_MAX_CYC			16
-#define KOS_MAX_ACT_CNT		0xFF
-#define KOS_MAX_WUP_CNT		0xFF
-#define KOS_MAX_SUS_CNT		0xFF
+#define KOS_MAX_INTNO		46
 #define KOS_SYSMPL_SIZE		(1<<10)			/* OS用メモリプールのサイズ */
 #define KOS_IDLE_STKSIZE	0x100			/* IDLEタスクのスタックサイズ */
 #define KOS_INIT_TSK		init_task		/* 初期化タスクのエントリーポイント名 */

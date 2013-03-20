@@ -2,6 +2,7 @@
 #include "mcu.h"
 #include "usbcdc.h"
 #include "kos.h"
+#include "ksh.h"
 #include "led_drv.h"
 #include <string.h>
 

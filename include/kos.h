@@ -11,6 +11,7 @@
 
 #include "kos_usr_cfg.h"
 #include "kos_sys_cfg.h"
+#include "kos_arch_cfg.h"
 
 #if __STDC_VERSION__ >= 199901L
 #	define KOS_INLINE	inline
@@ -41,20 +42,20 @@ typedef unsigned int	kos_flgptn_t;
 typedef unsigned int	kos_systim_t;
 typedef unsigned int	kos_reltim_t;
 
-#define KOS_NULL			0
-#define KOS_TRUE			1
-#define KOS_FALSE			0
-#define KOS_E_OK			0
+#define KOS_NULL		0
+#define KOS_TRUE		1
+#define KOS_FALSE		0
+#define KOS_E_OK		0
 
-#define KOS_E_SYS			-5
+#define KOS_E_SYS		-5
 
 #define KOS_E_NOSPT		-9
 #define KOS_E_RSFN		-10
 #define KOS_E_RSATR		-11
-#define KOS_E_PAR			-17
-#define KOS_E_ID			-18
+#define KOS_E_PAR		-17
+#define KOS_E_ID		-18
 
-#define KOS_E_CTX			-25
+#define KOS_E_CTX		-25
 #define KOS_E_MACV		-26
 #define KOS_E_OACV		-27
 #define KOS_E_ILUSE		-28
@@ -62,82 +63,82 @@ typedef unsigned int	kos_reltim_t;
 #define KOS_E_NOMEM		-33
 #define KOS_E_NOID		-34
 
-#define KOS_E_OBJ			-41
+#define KOS_E_OBJ		-41
 #define KOS_E_NOEXS		-42
 #define KOS_E_QOVR		-43
 
 #define KOS_E_RLWAI		-49
 #define KOS_E_TMOUT		-50
-#define KOS_E_DLT			-51
-#define KOS_E_CLS			-52
+#define KOS_E_DLT		-51
+#define KOS_E_CLS		-52
 
 #define KOS_E_WBLK		-57
 #define KOS_E_BOVR		-58
 
 /* attributes */
-#define KOS_TA_NULL				0
-#define KOS_TA_HLNG				0x00
-#define KOS_TA_ASM				0x01
-#define KOS_TA_TFIFO			0x00
-#define KOS_TA_TPRI				0x01
+#define KOS_TA_NULL		0
+#define KOS_TA_HLNG		0x00
+#define KOS_TA_ASM		0x01
+#define KOS_TA_TFIFO	0x00
+#define KOS_TA_TPRI		0x01
 
-#define KOS_TMO_POL				0
-#define KOS_TMO_FEVR			-1
-#define KOS_TMO_NBLK			-2
+#define KOS_TMO_POL		0
+#define KOS_TMO_FEVR	-1
+#define KOS_TMO_NBLK	-2
 
-#define KOS_TSK_SELF			0
-#define KOS_TSK_NONE			0
-#define KOS_TPRI_SELF			0
-#define KOS_TPRI_INI			0
+#define KOS_TSK_SELF	0
+#define KOS_TSK_NONE	0
+#define KOS_TPRI_SELF	0
+#define KOS_TPRI_INI	0
 
 /* task stat */
-#define KOS_TTS_RUN				0x01
-#define KOS_TTS_RDY				0x02
-#define KOS_TTS_WAI				0x04
-#define KOS_TTS_SUS				0x08
-#define KOS_TTS_WAS				0x0c
-#define KOS_TTS_DMT				0x10
+#define KOS_TTS_RUN		0x01
+#define KOS_TTS_RDY		0x02
+#define KOS_TTS_WAI		0x04
+#define KOS_TTS_SUS		0x08
+#define KOS_TTS_WAS		0x0c
+#define KOS_TTS_DMT		0x10
 
 /* task wait factor */
-#define KOS_TTW_SLP				0x0001
-#define KOS_TTW_DLY				0x0002
-#define KOS_TTW_SEM				0x0004
-#define KOS_TTW_FLG				0x0008
-#define KOS_TTW_SDTQ			0x0010
-#define KOS_TTW_RDTQ			0x0020
-#define KOS_TTW_MBX				0x0080
+#define KOS_TTW_SLP		0x0001
+#define KOS_TTW_DLY		0x0002
+#define KOS_TTW_SEM		0x0004
+#define KOS_TTW_FLG		0x0008
+#define KOS_TTW_SDTQ	0x0010
+#define KOS_TTW_RDTQ	0x0020
+#define KOS_TTW_MBX		0x0080
 
 typedef struct {
-	kos_atr_t			tskatr;
+	kos_atr_t		tskatr;
 	kos_vp_int_t	exinf;
-	kos_fp_t			task;
-	kos_pri_t			itskpri;
+	kos_fp_t		task;
+	kos_pri_t		itskpri;
 	kos_size_t		stksz;
-	kos_vp_t			stk;
+	kos_vp_t		stk;
 } kos_ctsk_t;
 
 typedef struct {
-	kos_stat_t				tskstat;
-	kos_pri_t					tskpri;
-	kos_pri_t					tskbpri;
-	kos_stat_t				tskwait;
-	kos_id_t					wobjid;
-	kos_tmo_t					lefttmo;
-	kos_uint_t				actcnt;
-	kos_uint_t				wupcnt;
-	kos_uint_t				suscnt;
+	kos_stat_t	tskstat;
+	kos_pri_t	tskpri;
+	kos_pri_t	tskbpri;
+	kos_stat_t	tskwait;
+	kos_id_t	wobjid;
+	kos_tmo_t	lefttmo;
+	kos_uint_t	actcnt;
+	kos_uint_t	wupcnt;
+	kos_uint_t	suscnt;
 } kos_rtsk_t;
 
 typedef unsigned int kos_intno_t;
 
 typedef struct {
-	kos_atr_t			inhatr;	/* */
-	kos_fp_t			inthdr;	/* 割り込みハンドラ */
+	kos_atr_t		inhatr;	/* */
+	kos_fp_t		inthdr;	/* 割り込みハンドラ */
 	kos_vp_int_t	exinf;	/* 割り込みハンドラに渡す値 */
 } kos_dinh_t;
 
 typedef struct {
-	kos_id_t			tid;
+	kos_id_t		tid;
 	kos_bool_t		ctx;
 	kos_bool_t		loc;
 	kos_bool_t		dsp;
@@ -145,7 +146,7 @@ typedef struct {
 } kos_rsys_t;
 
 /* タスク管理機能 */
-kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk); __attribute__((__nonnull__(1)));
+kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk) __attribute__((__nonnull__(1)));
 kos_er_t kos_del_tsk(kos_id_t tskid);
 kos_er_t kos_act_tsk(kos_id_t tskid);
 kos_er_t kos_iact_tsk(kos_id_t tskid);

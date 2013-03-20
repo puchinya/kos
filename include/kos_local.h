@@ -1,0 +1,134 @@
+
+#ifndef __KOS_LOCAL_H__
+#define __KOS_LOCAL_H__
+
+#include "kos.h"
+#include "mcu.h"
+
+#define kos_lock	__disable_irq()
+#define kos_unlock	__enable_irq()
+
+#define KOS_ARRAY_LEN(n)	(sizeof(n)/sizeof((n)[0]));
+
+typedef struct kos_list_t kos_list_t;
+typedef union kos_tcb_wait_info_t kos_tcb_wait_info_t;
+typedef struct kos_tcb_t kos_tcb_t;
+typedef struct kos_sem_cb_t kos_sem_cb_t;
+typedef struct kos_flg_cb_t kos_flg_cb_t;
+typedef struct kos_cyc_cb_t kos_cyc_cb_t;
+
+struct kos_list_t {
+	kos_list_t	*next, *prev;
+};
+
+#undef KOS_TCB_HAS_WAIT_INFO
+
+union kos_tcb_wait_info_t {
+#if defined(KOS_CFG_SPT_FLG) && defined(KOS_CFG_SPT_FLG_WMUL)
+	struct {
+		kos_mode_t		wfmode;
+		kos_flgptn_t	waiptn;
+		kos_flgptn_t	*relptn;	/* 待ち解除されたときのビットパターン */
+	} flg;
+#undef KOS_TCB_HAS_WAIT_INFO
+#define KOS_TCB_HAS_WAIT_INFO
+#endif
+	int	dummy;
+};
+
+struct kos_tcb_t {
+	kos_list_t			wait_list;	/* 待ち要因に対してつなぐリスト */
+	kos_list_t			tmo_list;	/* タイムアウトのためにつなぐリスト */
+	void				*sp;		/* current stack pointer */
+	kos_id_t			id;			/* task id */
+	kos_ctsk_t			ctsk;		/* task create parameters */
+	kos_rtsk_t			st;
+#ifdef KOS_TCB_HAS_WAIT_INFO
+	kos_tcb_wait_info_t	wait_info;
+#endif
+	kos_er_t			rel_wai_er;
+};
+
+struct kos_sem_cb_t {
+	const kos_csem_t	*csem;			/* semaphore create parameters */
+	kos_uint_t			semcnt;			/* semaphore counter */
+	kos_list_t			wait_tsk_list;	/* wait task list */
+};
+
+struct kos_flg_cb_t {
+	const kos_cflg_t	*cflg;
+	kos_flgptn_t		flgptn;
+	kos_list_t			wait_tsk_list;
+#ifndef KOS_CFG_SPT_FLG_WMUL
+	kos_mode_t			wfmode;
+	kos_mode_t			waiptn;
+	kos_flgptn_t		*relptn;
+#endif
+};
+
+struct kos_cyc_cb_t {
+	kos_list_t			list;
+	const kos_ccyc_t	*ccyc;
+	kos_rcyc_t			st;
+};
+
+extern kos_tcb_t 	*g_kos_cur_tcb;
+extern kos_list_t	g_kos_rdy_que[];
+extern kos_dinh_t	g_kos_dinh_list[];
+
+extern kos_tcb_t	*g_kos_tcb[];
+extern kos_sem_cb_t	*g_kos_sem_cb[];
+extern kos_flg_cb_t	*g_kos_flg_cb[];
+extern kos_cyc_cb_t	*g_kos_cyc_cb[];
+
+extern kos_tcb_t	g_kos_tcb_inst[];
+extern kos_sem_cb_t	g_kos_sem_cb_inst[];
+extern kos_flg_cb_t	g_kos_flg_cb_inst[];
+extern kos_cyc_cb_t	g_kos_cyc_cb_inst[];
+
+extern const kos_uint_t g_kos_max_tsk;
+extern const kos_uint_t g_kos_max_sem;
+extern const kos_uint_t g_kos_max_flg;
+extern const kos_uint_t g_kos_max_cyc;
+extern const kos_uint_t g_kos_max_pri;
+extern const kos_uint_t g_kos_max_intno;
+
+void kos_start_kernel(void);
+void kos_arch_setup_systick_handler(void);	/* for kos_arch.c */
+
+
+static KOS_INLINE void kos_list_init(kos_list_t *l)
+{
+	l->next = l;
+	l->prev = l;
+}
+
+static KOS_INLINE void kos_list_insert_prev(kos_list_t *l, kos_list_t *n)
+{
+	l->prev->next = n;
+	n->prev = l->prev;
+	n->next = l;
+	l->prev = n;
+}
+
+static KOS_INLINE void kos_list_remove(kos_list_t *l)
+{
+	l->prev->next = l->next;
+	l->next->prev = l->prev;
+}
+
+static KOS_INLINE int kos_list_empty(kos_list_t *l)
+{
+	return l == l->next;
+}
+
+int kos_find_null(void **a, int len);
+void *kos_malloc(kos_size_t size);
+void kos_free(void *p);
+
+kos_er_t kos_wait_nolock(kos_tcb_t *tcb);
+void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
+void kos_schedule(void);
+void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list);
+
+#endif
