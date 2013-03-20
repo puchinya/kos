@@ -126,9 +126,15 @@ int kos_find_null(void **a, int len);
 void *kos_malloc(kos_size_t size);
 void kos_free(void *p);
 
+void kos_process_tmo(void);
+void kos_rdy_tsk_nolock(kos_tcb_t *tcb);
 kos_er_t kos_wait_nolock(kos_tcb_t *tcb);
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
 void kos_schedule(void);
 void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list);
+
+/* kos_cyc.c */
+void kos_init_cyc(void);
+void kos_process_cyc(void);
 
 #endif

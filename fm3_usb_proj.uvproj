@@ -448,6 +448,16 @@
               <FileType>1</FileType>
               <FilePath>.\src\kos_arch.c</FilePath>
             </File>
+            <File>
+              <FileName>kos_sem.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kos_sem.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_flg.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kos_flg.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>
