@@ -69,7 +69,7 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 	sp[12] = 0;								// R12
 	sp[13] = (uint32_t)kos_tsk_entry;		// LR
 	sp[14] = (uint32_t)kos_tsk_entry;		// PC
-	sp[15] = 1<<24;							// PSR
+	sp[15] = 0x01000000;					// PSR
 	
 	kos_unlock;
 end:
@@ -398,7 +398,10 @@ kos_er_t kos_dly_tsk(kos_reltim_t dlytim)
 	kos_er_t er;
 	kos_tcb_t *tcb;
 	
-	if(dlytim == 0) return KOS_E_OK;
+	/* 待ちに移行させるために1にする */
+	if(dlytim == 0) {
+		dlytim = 1;
+	}
 	
 	kos_lock;
 	

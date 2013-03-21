@@ -36,8 +36,12 @@ kos_er_t kos_get_tim(kos_systim_t *p_systim)
 
 kos_er_t kos_isig_tim(void)
 {
+	if(!kos_sns_ctx()) {
+		return KOS_E_CTX;
+	}
+	
 	/* 多重割り込み禁止 */
-	kos_lock;
+	kos_ilock;
 	
 	/* システム時刻をインクリメント */
 	s_systim++;
@@ -48,9 +52,7 @@ kos_er_t kos_isig_tim(void)
 	/* 周期ハンドラの処理 */
 	kos_process_cyc();
 	
-	//kos_set_pend_sv();
-	
-	kos_unlock;
+	kos_iunlock;
 	
 	return KOS_E_OK;
 }

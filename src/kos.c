@@ -7,7 +7,7 @@
 
 extern void KOS_INIT_TSK(void);
 
-#define kos_set_pend_sv()	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
+#define kos_set_pend_sv()	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk; __DSB();
 
 /*-----------------------------------------------------------------------------
 	グローバル変数定義
@@ -20,6 +20,8 @@ kos_tcb_t	*g_kos_tcb[KOS_MAX_TSK];
 kos_sem_cb_t *g_kos_sem_cb[KOS_MAX_SEM];
 kos_flg_cb_t *g_kos_flg_cb[KOS_MAX_FLG];
 kos_cyc_cb_t *g_kos_cyc_cb[KOS_MAX_CYC];
+kos_uint_t g_kos_isr_stk[KOS_ISR_STKSIZE / sizeof(kos_uint_t)];
+void *g_kos_idle_sp;
 
 const kos_uint_t g_kos_max_tsk = KOS_MAX_TSK;
 const kos_uint_t g_kos_max_sem = KOS_MAX_SEM;
@@ -27,6 +29,7 @@ const kos_uint_t g_kos_max_flg = KOS_MAX_FLG;
 const kos_uint_t g_kos_max_cyc = KOS_MAX_CYC;
 const kos_uint_t g_kos_max_pri = KOS_MAX_PRI;
 const kos_uint_t g_kos_max_intno = KOS_MAX_INTNO;
+const kos_uint_t g_kos_isr_stksz = KOS_ISR_STKSIZE;
 
 /*-----------------------------------------------------------------------------
 	ファイル内変数定義
@@ -39,6 +42,7 @@ static kos_bool_t s_dsp;					/* ディスパッチ禁止状態 */
 -----------------------------------------------------------------------------*/
 void kos_schedule_nolock(void);
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
+static void kos_swap_PSP(void **backup_sp, void *new_sp);
 static void kos_switch_ctx(void **bk_sp, void *new_sp);
 static void kos_iswitch_ctx(void **bk_sp, void *new_sp);
 void kos_set_ctx(void *new_sp);
@@ -74,7 +78,7 @@ void kos_schedule_nolock(void)
 	
 	if(s_dsp) return;
 	
-	/* 探索する上限優先度を決める */	
+	/* 探索する下限優先度を決める */	
 	cur_tcb = g_kos_cur_tcb;
 	if(cur_tcb != KOS_NULL) {
 		if(cur_tcb->st.tskstat == KOS_TTS_RUN) {
@@ -88,7 +92,7 @@ void kos_schedule_nolock(void)
 	
 	/* レディキューを探索 */
 	rdy_que = g_kos_rdy_que;
-	next_tcb = NULL;
+	next_tcb = KOS_NULL;
 	for(i = 0; i < maxpri; i++) {
 		if(!kos_list_empty(&rdy_que[i])) {
 			next_tcb = (kos_tcb_t *)rdy_que[i].next;
@@ -96,37 +100,51 @@ void kos_schedule_nolock(void)
 		}
 	}
 	
-	/* 無ければ何もしない */	
-	if(!next_tcb) return;
+	/* 現在のタスクが実行中で切り替え先が無ければ何もしない */	
+	if(next_tcb == KOS_NULL) {
+		if(cur_tcb == KOS_NULL || cur_tcb->st.tskstat == KOS_TTS_RUN) {
+			return;
+		}
+	}
 	
 	if(cur_tcb != KOS_NULL && cur_tcb->st.tskstat == KOS_TTS_RUN) {
-		/* 以前のタスクが実行状態ならレディキューへ移動 */
+		/* 現在のタスクが実行状態ならレディキューの末尾へ移動 */
 		cur_tcb->st.tskstat = KOS_TTS_RDY;
 		kos_list_insert_prev(&rdy_que[cur_tcb->st.tskpri-1],
 			(kos_list_t *)cur_tcb);
 	}
 	
-	/* レディキューから削除 */
-	kos_list_remove((kos_list_t *)next_tcb);
-	/* 実行状態へ変更 */
-	next_tcb->st.tskstat = KOS_TTS_RUN;
+	if(next_tcb) {
+		
+		/* 切り替え先のタスクをレディキューから削除 */
+		kos_list_remove((kos_list_t *)next_tcb);
+		
+		/* 切り替え先のタスクを実行状態へ変更 */
+		next_tcb->st.tskstat = KOS_TTS_RUN;
+	}
+	
 	g_kos_cur_tcb = next_tcb;
 	
 	/* コンテキストスイッチ */
-	if(cur_tcb != KOS_NULL) {
-#ifdef KOS_ENABLE_PENDSV_SCHEDULE
-		kos_iswitch_ctx(&cur_tcb->sp, next_tcb->sp);
-#else
-		int cur_is_irq = kos_sns_ctx();
-		if(cur_is_irq) {
-			kos_iswitch_ctx(&cur_tcb->sp, next_tcb->sp);
-		} else {
-			kos_switch_ctx(&cur_tcb->sp, next_tcb->sp);
-		}
-#endif
-	} else {
-		kos_set_ctx(next_tcb->sp);
+	{
+		void **backup_sp;
+		void *new_sp;
+		
+		backup_sp = cur_tcb ? &cur_tcb->sp : &g_kos_idle_sp;
+		new_sp = next_tcb ? next_tcb->sp : g_kos_idle_sp;
+		
+		kos_swap_PSP(backup_sp, new_sp);
 	}
+}
+
+static __asm void kos_swap_PSP(void **backup_sp, void *new_sp)
+{
+	/* PSPをバックアップ */
+	MRS		R2, PSP
+	STR		R2, [R0]
+	/* 新しいPSPに変更 */
+	MSR		PSP, R1
+	BX		LR
 }
 
 __asm void kos_switch_ctx(void **bk_sp, void *new_sp)
@@ -241,7 +259,11 @@ void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
 void kos_schedule(void)
 {
 #ifdef KOS_ENABLE_PENDSV_SCHEDULE
-	if(!s_dsp) { kos_set_pend_sv(); }
+	if(!s_dsp) {
+		kos_set_pend_sv();
+		kos_unlock;
+		kos_lock;
+	}
 #else
 	kos_schedule_nolock()
 #endif
@@ -279,28 +301,6 @@ void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list)
 /*-----------------------------------------------------------------------------
 	起動処理
 -----------------------------------------------------------------------------*/
-static void kos_idle(void *exinf)
-{
-	for(;;) {
-		__WFI;
-	}
-}
-
-static uint32_t s_kos_idle_stk[KOS_IDLE_STKSIZE/sizeof(uint32_t)];
-
-static const kos_ctsk_t s_ctsk_idle =
-{
-	0,
-	0,
-#ifdef KOS_IDLE_TASK
-	KOS_IDLE_TASK,
-#else
-	kos_idle,
-#endif
-	KOS_MAX_PRI,
-	KOS_IDLE_STKSIZE,
-	s_kos_idle_stk
-};
 
 static uint32_t s_kos_init_stk[KOS_INIT_STKSIZE/sizeof(uint32_t)];
 
@@ -336,8 +336,7 @@ static void kos_init_vars(void)
 static void kos_init_tsks(void)
 {
 	kos_id_t tskid;
-	tskid = kos_cre_tsk(&s_ctsk_idle);
-	kos_act_tsk(tskid);
+	
 	tskid = kos_cre_tsk(&s_ctsk_init);
 	kos_act_tsk(tskid);
 }
@@ -349,10 +348,23 @@ static void kos_init_irq(void)
 
 __asm void kos_init_regs(void)
 {
+	extern g_kos_isr_stk
+	extern g_kos_isr_stksz
+	
 	MRS R0, MSP
 	MSR PSP, R0
+	
+	LDR R0, =g_kos_isr_stk
+	LDR R1, =g_kos_isr_stksz
+	LDR R1, [R1]
+	
+	ADD R0, R1
+	MSR MSP, R0
+	
 	MOV	R0, #2
 	MSR	CONTROL, R0
+	
+	BX	LR
 }
 
 void kos_init(void)
@@ -369,8 +381,16 @@ void kos_init(void)
 
 void kos_start_kernel(void)
 {
+	/* initialize kernel */
 	kos_init();
+	
+	/* enable dispatch */
 	kos_ena_dsp();
+	
+	/* idle */
+	for(;;) {
+		__WFI();
+	}
 }
 
 kos_er_t kos_wait_nolock(kos_tcb_t *tcb)
@@ -386,8 +406,6 @@ kos_er_t kos_wait_nolock(kos_tcb_t *tcb)
 	}
 	
 	kos_schedule();
-	kos_unlock;
-	kos_lock;
 	
 	return tcb->rel_wai_er;
 }
@@ -444,7 +462,11 @@ kos_er_t kos_iget_tid(kos_id_t *p_tskid)
 		return KOS_E_PAR;
 #endif
 	
-	*p_tskid = g_kos_cur_tcb->id;
+	if(g_kos_cur_tcb == KOS_NULL) {
+		*p_tskid = KOS_TSK_NONE;
+	} else {
+		*p_tskid = g_kos_cur_tcb->id;
+	}
 	
 	return KOS_E_OK;
 }
@@ -482,14 +504,14 @@ kos_er_t kos_dis_dsp(void)
 
 kos_er_t kos_ena_dsp(void)
 {
-	//kos_lock;
+	kos_lock;
 	
 	if(s_dsp) {
 		s_dsp = KOS_FALSE;
 		kos_schedule();
 	}
 	
-	//kos_unlock;
+	kos_unlock;
 	
 	return KOS_E_OK;
 }
@@ -505,6 +527,11 @@ __asm kos_bool_t kos_sns_ctx(void)
 kos_bool_t kos_sns_dsp(void)
 {
 	return s_dsp;
+}
+
+kos_bool_t kos_sns_dpn(void)
+{
+	return s_dsp || kos_sns_ctx();
 }
 
 /*-----------------------------------------------------------------------------
@@ -538,22 +565,3 @@ kos_er_t kos_def_inh(kos_intno_t intno, const kos_dinh_t *pk_dinh)
 	システム割り込みハンドラ
 -----------------------------------------------------------------------------*/
 
-/* do schedule */
-__asm void PendSV_Handler(void)
-{
-	extern kos_schedule_nolock
-	
-	CPSID		i
-	MRS			R0, PSP
-	STMDB		R0!, {R4-R11}
-	MSR			PSP, R0
-	LDR			R0, =kos_schedule_nolock
-	MOV			R4, LR
-	BLX			R0
-	MOV			LR, R4
-	MRS			R0, PSP
-	LDMIA		R0!, {R4-R11}
-	MSR			PSP, R0
-	CPSIE		i
-	BX			LR
-}

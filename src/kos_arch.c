@@ -7,6 +7,8 @@
 int main(void)
 {
 	kos_start_kernel();
+	
+	return 0;
 }
 
 void kos_arch_setup_systick_handler(void)
@@ -16,8 +18,8 @@ void kos_arch_setup_systick_handler(void)
 	period = SystemCoreClock / 100;	
 	SysTick_Config(period);
 	
-//	NVIC_SetPriority(PendSV_IRQn, 255);
-//	NVIC_SetPriority(SysTick_IRQn, 254);
+	//NVIC_SetPriority(PendSV_IRQn, 255);
+	//NVIC_SetPriority(SysTick_IRQn, 254);
 }
 
 /*-----------------------------------------------------------------------------
@@ -66,6 +68,28 @@ DEF_INTR_CODE(USB1F_Handler, USB1F_USB1H_IRQn);
 void SysTick_Handler(void)
 {
 	kos_isig_tim();
+}
+
+/* do schedule */
+__asm void PendSV_Handler(void)
+{
+	extern kos_schedule_nolock
+	
+	/* store R4-R11 to PSP */
+	MRS			R0, PSP
+	STMDB		R0!, {R4-R11}
+	MSR			PSP, R0
+	
+	MOV			R4, LR
+	BL			kos_schedule_nolock
+	MOV			LR, R4
+	
+	/* load R4-R11 from PSP */
+	MRS			R0, PSP
+	LDMIA		R0!, {R4-R11}
+	MSR			PSP, R0
+	
+	BX			LR
 }
 
 void HardFault_Handler(void)

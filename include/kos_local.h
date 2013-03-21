@@ -7,6 +7,8 @@
 
 #define kos_lock	__disable_irq()
 #define kos_unlock	__enable_irq()
+#define kos_ilock	__disable_irq()
+#define kos_iunlock	__enable_irq()
 
 #define KOS_ARRAY_LEN(n)	(sizeof(n)/sizeof((n)[0]));
 

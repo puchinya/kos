@@ -125,7 +125,7 @@
             <RestoreMemoryDisplay>1</RestoreMemoryDisplay>
             <RestoreFunctions>1</RestoreFunctions>
             <RestoreToolbox>1</RestoreToolbox>
-            <LimitSpeedToRealTime>0</LimitSpeedToRealTime>
+            <LimitSpeedToRealTime>1</LimitSpeedToRealTime>
           </Simulator>
           <Target>
             <UseTarget>1</UseTarget>
@@ -424,11 +424,6 @@
               <FilePath>.\src\kos.c</FilePath>
             </File>
             <File>
-              <FileName>ksys.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\include\ksys.h</FilePath>
-            </File>
-            <File>
               <FileName>ksh.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\ksh.c</FilePath>
@@ -457,6 +452,21 @@
               <FileName>kos_flg.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\kos_flg.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_cyc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kos_cyc.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_tsk.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kos_tsk.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_tim.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kos_tim.c</FilePath>
             </File>
           </Files>
         </Group>

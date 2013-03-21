@@ -170,13 +170,13 @@ kos_er_t kos_dly_tsk(kos_reltim_t dlytim);
 /* 同期・通信機能/セマフォ */
 #ifdef KOS_CFG_SPT_SEM
 typedef struct {
-	kos_atr_t		sematr;
+	kos_atr_t	sematr;
 	kos_uint_t	isemcnt;
 	kos_uint_t	maxsem;
 } kos_csem_t;
 
 typedef struct {
-	kos_id_t		wtskid;
+	kos_id_t	wtskid;
 	kos_uint_t	semcnt;
 } kos_rsem_t;
 
@@ -203,12 +203,12 @@ kos_er_t kos_ref_sem(kos_id_t semid, kos_rsem_t *pk_rsem);
 #define KOS_TWF_ORW		0x01
 
 typedef struct {
-	kos_atr_t			flgatr;
+	kos_atr_t		flgatr;
 	kos_flgptn_t	iflgptn;
 } kos_cflg_t;
 
 typedef struct {
-	kos_id_t			wtskid;
+	kos_id_t		wtskid;
 	kos_flgptn_t	flgptn;
 } kos_rflg_t;
 
@@ -226,6 +226,26 @@ static KOS_INLINE kos_er_t kos_pol_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 kos_er_t kos_ref_flg(kos_id_t flgid, kos_rflg_t *pk_rflg);
 
 #endif
+	
+/* dtq */
+
+typedef struct {
+	kos_atr_t		dtqatr;
+	kos_uint_t		dtqcnt;
+	kos_vp_t		dtq;
+} kos_cdtq_t;
+
+typedef struct {
+	kos_atr_t		stskid;
+	kos_uint_t		rtskid;
+	kos_vp_t		sdtqcnt;
+} kos_rdtq_t;
+
+kos_er_id_t kos_cre_dtq(const kos_cdtq_t *pk_cdtq);
+kos_er_t kos_del_dtq(kos_id_t dtqid);
+kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout);
+kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout);
+kos_er_t kos_ref_dtq(kos_id_t dtqid, kos_rdtq_t *pk_rdtq);
 
 /* mbx */
 
