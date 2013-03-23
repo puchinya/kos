@@ -1,31 +1,13 @@
 
 #include "kos_local.h"
-#include <stdlib.h>
 #include <string.h>
-
-#define KOS_ENABLE_PENDSV_SCHEDULE
 
 extern void KOS_INIT_TSK(void);
 
 #define kos_set_pend_sv()	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk; __DSB();
 
-/*-----------------------------------------------------------------------------
-	グローバル変数定義
------------------------------------------------------------------------------*/
-
-/*-----------------------------------------------------------------------------
-	ファイル内変数定義
------------------------------------------------------------------------------*/
-
-/*-----------------------------------------------------------------------------
-	ファイル内関数プロトタイプ宣言
------------------------------------------------------------------------------*/
-void kos_schedule_nolock(void);
-void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
+void kos_schedule_impl_nolock(void);
 static void kos_swap_PSP(void **backup_sp, void *new_sp);
-static void kos_switch_ctx(void **bk_sp, void *new_sp);
-static void kos_iswitch_ctx(void **bk_sp, void *new_sp);
-void kos_set_ctx(void *new_sp);
 
 int kos_find_null(void **a, int len)
 {
@@ -36,17 +18,11 @@ int kos_find_null(void **a, int len)
 	return -1;
 }
 
-/*-----------------------------------------------------------------------------
-	インライン関数
------------------------------------------------------------------------------*/
-
-void kos_schedule_nolock(void)
+void kos_schedule_impl_nolock(void)
 {
 	int i, maxpri;
 	kos_tcb_t *cur_tcb, *next_tcb;
 	kos_list_t *rdy_que;
-	
-	if(g_kos_dsp) return;
 	
 	/* 探索する下限優先度を決める */	
 	cur_tcb = g_kos_cur_tcb;
@@ -117,88 +93,12 @@ static __asm void kos_swap_PSP(void **backup_sp, void *new_sp)
 	BX		LR
 }
 
-__asm void kos_switch_ctx(void **bk_sp, void *new_sp)
-{
-	MRS		R2, PSR
-	MOV		R3, #0
-	MOVT	R3, #0x0100
-	ORR		R2, R2, R3
-	PUSH	{R2}
-	PUSH	{LR}
-	PUSH	{LR}
-	PUSH	{R12}
-	PUSH	{R0-R3}
-	PUSH	{R4-R11}
-	
-	STR		SP, [R0]
-	
-	MOV		SP, R1
-	POP		{R4-R11}
-	LDR		R0, [SP, #24]
-	MOV		R1, #1
-	ORR		R0, R0, R1
-	STR		R0, [SP, #24]
-	POP		{R0-R3}
-	ADD		SP, #16
-	LDR		R12, [SP, #-4]
-	MSR		PSR, R12
-	LDR		R12, [SP, #-16]
-	LDR		LR, [SP, #-12]
-	CPSIE	i
-	LDR		PC, [SP, #-8]
-}
-
-__asm void kos_iswitch_ctx(void **bk_sp, void *new_sp)
-{
-	/* PSPをバックアップ */
-	MRS		R2, PSP
-	STR		R2, [R0]
-	/* MSP初期化 */
-//	MOV		R0, #0
-//	LDR		SP, [R0]
-	
-	/* Thread Modeへ */
-//	MOV		R2, #0xFFFD
-//	MOVT	R2, #0xFFFF
-//	LDMIA	R1!, {R4-R11}
-	MSR		PSP, R1
-//	CPSIE	i
-//	BX		R2
-	BX		LR
-}
-
-__asm void kos_set_ctx(void *new_sp)
-{
-#ifdef KOS_ENABLE_PENDSV_SCHEDULE
-	/* PSPを入れ替え */
-	MSR	PSP, R0
-	BX	LR
-#else
-	/* PSPを入れ替え */
-	MSR	PSP, R0
-	MOV	R0, #0
-	LDR	R0, [R0]
-	/* MSPを初期化 */
-	MSR	MSP, R0
-	MOV	R0, #2
-	MSR	CONTROL, R0
-	
-	POP		{R4-R11}
-	POP		{R0-R3}
-	POP		{R12}
-	POP		{LR}
-	POP		{LR}
-	POP		{R1}
-	MSR		PSR, R1
-	CPSIE	i
-	BX		LR
-#endif
-}
-
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
 {
 	tcb->st.tskstat = KOS_TTS_RDY;
 	kos_list_insert_prev(&g_kos_rdy_que[tcb->st.tskpri-1], (kos_list_t *)tcb);
+	
+	g_kos_pend_schedule = KOS_TRUE;
 }
 
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
@@ -226,28 +126,34 @@ void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
 	}
 }
 
-void kos_schedule(void)
+void kos_schedule_now_nolock(void)
 {
-#ifdef KOS_ENABLE_PENDSV_SCHEDULE
-	if(!g_kos_dsp) {
+	if(g_kos_pend_schedule && !g_kos_dsp) {
+		g_kos_pend_schedule = KOS_FALSE;
+		
 		kos_set_pend_sv();
+		
+		/* すぐに切り替えるために一度割り込みを解除する */
 		kos_unlock;
 		kos_lock;
 	}
-#else
-	kos_schedule_nolock()
-#endif
 }
 
-void kos_ischedule(void)
+void kos_schedule_nolock(void)
 {
-#ifdef KOS_ENABLE_PENDSV_SCHEDULE
-	if(!g_kos_dsp) {
+	if(g_kos_pend_schedule && !g_kos_dsp) {
+		g_kos_pend_schedule = KOS_FALSE;
+		
 		kos_set_pend_sv();
 	}
-#else
-	kos_schedule_nolock()
-#endif
+}
+
+void kos_ischedule_nolock(void)
+{
+	if(g_kos_pend_schedule && !g_kos_dsp) {
+		g_kos_pend_schedule = KOS_FALSE;
+		kos_set_pend_sv();
+	}
 }
 
 /*
@@ -260,6 +166,7 @@ void kos_ischedule(void)
 void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list)
 {
 	const kos_list_t *l;
+	
 	for(l = wait_tsk_list->next; l != wait_tsk_list; l = l->next)
 	{
 		kos_tcb_t *tcb = (kos_tcb_t *)l;
@@ -301,6 +208,7 @@ static void kos_init_vars(void)
 	
 	g_kos_cur_tcb = KOS_NULL;
 	g_kos_dsp = KOS_TRUE;
+	g_kos_pend_schedule = KOS_FALSE;
 	
 	kos_list_init(&g_kos_tmo_wait_list);
 	
@@ -372,7 +280,7 @@ void kos_start_kernel(void)
 	/* idle */
 	for(;;) {
 		//__WFI();
-		__WFI;
+		__NOP();
 	}
 }
 
@@ -382,13 +290,14 @@ kos_er_t kos_wait_nolock(kos_tcb_t *tcb)
 		tcb->st.tskstat = KOS_TTS_WAS;
 	} else {
 		tcb->st.tskstat = KOS_TTS_WAI;
+		g_kos_pend_schedule = KOS_TRUE;
 	}
 	/* 無限待ちでなければタイムアウトリストにもつなげる */
 	if(tcb->st.lefttmo != KOS_TMO_FEVR) {
 		kos_list_insert_prev(&g_kos_tmo_wait_list, &tcb->tmo_list);
 	}
 	
-	kos_schedule();
+	kos_schedule_now_nolock();
 	
 	return tcb->rel_wai_er;
 }
@@ -411,8 +320,9 @@ void kos_process_tmo(void)
 		}
 		l = next;
 	}
+	
 	if(do_schedule) {
-		kos_schedule();
+		kos_ischedule_nolock();
 	}
 }
 
@@ -491,7 +401,7 @@ kos_er_t kos_ena_dsp(void)
 	
 	if(g_kos_dsp) {
 		g_kos_dsp = KOS_FALSE;
-		kos_schedule();
+		kos_schedule_nolock();
 	}
 	
 	kos_unlock;

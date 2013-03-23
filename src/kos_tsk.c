@@ -25,7 +25,8 @@ static void kos_tsk_entry(kos_tcb_t *tcb)
 		((void (*)(kos_vp_int_t))tcb->ctsk.task)(tcb->ctsk.exinf);
 		kos_lock;
 		tcb->st.tskstat = KOS_TTS_DMT;
-		kos_schedule();
+		g_kos_pend_schedule = KOS_TRUE;
+		kos_schedule_nolock();
 		kos_unlock;
 	}
 }
@@ -154,7 +155,7 @@ kos_er_t kos_act_tsk(kos_id_t tskid)
 	
 	if(tcb->st.tskstat == KOS_TTS_DMT) {
 		kos_rdy_tsk_nolock(tcb);
-		kos_schedule();
+		kos_schedule_nolock();
 	} else {
 		if(tcb->st.actcnt >= KOS_MAX_ACT_CNT) {
 			er = KOS_E_QOVR;
@@ -260,7 +261,7 @@ kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
 				/* 一旦RDY状態に変えてスケジューリング */
 				kos_rdy_tsk_nolock(tcb);
 				
-				kos_schedule();
+				kos_schedule_nolock();
 			} else {
 				/* 優先度が高くなる場合は実行中のタスクは変化しないので何もしない */
 			}
@@ -274,7 +275,8 @@ kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
 			
 			/* 現在実行中のタスク(自タスク)より優先度が高くなっていればスケジューリング */
 			if(g_kos_cur_tcb->st.tskpri > new_tskpri) {
-				kos_schedule();
+				g_kos_pend_schedule = KOS_TRUE;
+				kos_schedule_nolock();
 			}
 		}
 	}
@@ -446,7 +448,7 @@ kos_er_t kos_wup_tsk(kos_id_t tskid)
 		tcb->st.tskwait == KOS_TTW_SLP)
 	{
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_schedule();
+		kos_schedule_nolock();
 	} else if(tcb->st.tskstat == KOS_TTS_DMT) {
 		er = KOS_E_OBJ;
 		goto end;
@@ -488,7 +490,7 @@ kos_er_t kos_iwup_tsk(kos_id_t tskid)
 		tcb->st.tskwait == KOS_TTW_SLP)
 	{
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_ischedule();
+		kos_ischedule_nolock();
 	} else if(tcb->st.tskstat == KOS_TTS_DMT) {
 		er = KOS_E_OBJ;
 		goto end;
@@ -538,7 +540,7 @@ kos_er_t kos_rel_wai(kos_id_t tskid)
 	}
 	
 	kos_cancel_wait_nolock(tcb, KOS_E_RLWAI);
-	kos_schedule();
+	kos_schedule_nolock();
 	
 end:
 	kos_unlock;
@@ -579,7 +581,7 @@ kos_er_t kos_irel_wai(kos_id_t tskid)
 	}
 	
 	kos_cancel_wait_nolock(tcb, KOS_E_RLWAI);
-	kos_ischedule();
+	kos_ischedule_nolock();
 	
 end:
 	kos_iunlock;

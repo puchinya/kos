@@ -74,6 +74,8 @@ kos_er_t kos_del_sem(kos_id_t semid)
 	/* ID=>CB変換をクリア */
 	g_kos_sem_cb[semid - 1] = KOS_NULL;
 	
+	/* スケジューラー起動 */
+	kos_schedule_nolock();
 end:
 	kos_unlock;
 	
@@ -150,7 +152,7 @@ kos_er_t kos_sig_sem(kos_id_t semid)
 		kos_tcb_t *tcb = (kos_tcb_t *)cb->wait_tsk_list.next;
 		
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_schedule();
+		kos_schedule_nolock();
 	}
 end:
 	kos_unlock;
@@ -189,7 +191,7 @@ kos_er_t kos_isig_sem(kos_id_t semid)
 		kos_tcb_t *tcb = (kos_tcb_t *)cb->wait_tsk_list.next;
 		
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_ischedule();
+		kos_ischedule_nolock();
 	}
 end:
 	kos_iunlock;

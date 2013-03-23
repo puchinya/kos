@@ -73,6 +73,8 @@ kos_er_t kos_del_flg(kos_id_t flgid)
 	/* ID=>CB変換をクリア */
 	g_kos_sem_cb[flgid - 1] = KOS_NULL;
 	
+	/* スケジューラー起動 */
+	kos_schedule_nolock();
 end:
 	kos_unlock;
 	
@@ -132,7 +134,7 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 		}
 		
 		if(do_schedule) {
-			kos_schedule();
+			kos_schedule_nolock();
 		}
 #else
 		do {
@@ -149,7 +151,7 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 				cb->flgptn = 0;
 			}
 			kos_cancel_wait_nolock((kos_tcb_t *)cb->wait_tsk_list.next, KOS_E_OK);
-			kos_schedule();
+			kos_schedule_nolock();
 		} while(0);
 #endif
 	}
@@ -213,7 +215,7 @@ kos_er_t kos_iset_flg(kos_id_t flgid, kos_flgptn_t setptn)
 		}
 		
 		if(do_schedule) {
-			kos_ischedule();
+			kos_ischedule_nolock();
 		}
 #else
 		do {
@@ -230,7 +232,7 @@ kos_er_t kos_iset_flg(kos_id_t flgid, kos_flgptn_t setptn)
 				cb->flgptn = 0;
 			}
 			kos_cancel_wait_nolock((kos_tcb_t *)cb->wait_tsk_list.next, KOS_E_OK);
-			kos_ischedule();
+			kos_ischedule_nolock();
 		} while(0);
 #endif
 	}

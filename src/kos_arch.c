@@ -73,7 +73,7 @@ void SysTick_Handler(void)
 /* do schedule */
 __asm void PendSV_Handler(void)
 {
-	extern kos_schedule_nolock
+	extern kos_schedule_impl_nolock
 	
 	CPSID		i
 	
@@ -83,7 +83,7 @@ __asm void PendSV_Handler(void)
 	MSR			PSP, R0
 	
 	MOV			R11, LR
-	BL			kos_schedule_nolock
+	BL			kos_schedule_impl_nolock
 	MOV			LR, R11
 	
 	/* load R4-R11 from PSP */
