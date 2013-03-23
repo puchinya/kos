@@ -14,15 +14,16 @@ static const ksh_cmd *ksh_find_cmd(const char *cmd_name);
 
 int ksh_getchar(void)
 {
-	uint8_t b;
-	usbcdc_read(s_cdc, &b, 1);
-	return (int)b;
+	uint8_t b[1];
+	usbcdc_read(s_cdc, b, 1);
+	return (int)b[0];
 }
 
 void ksh_putchar(int ch)
 {
-	uint8_t b = (uint8_t)ch;
-	usbcdc_write(s_cdc, &b, 1);
+	uint8_t b[1];
+	b[0] = (uint8_t)ch;
+	usbcdc_write(s_cdc, b, 1);
 }
 
 void ksh_printl(const char *s, int len)

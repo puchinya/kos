@@ -75,6 +75,8 @@ __asm void PendSV_Handler(void)
 {
 	extern kos_schedule_nolock
 	
+	CPSID		i
+	
 	/* store R4-R11 to PSP */
 	MRS			R0, PSP
 	STMDB		R0!, {R4-R11}
@@ -88,6 +90,8 @@ __asm void PendSV_Handler(void)
 	MRS			R0, PSP
 	LDMIA		R0!, {R4-R11}
 	MSR			PSP, R0
+	
+	CPSIE		i
 	
 	BX			LR
 }

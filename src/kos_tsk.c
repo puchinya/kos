@@ -62,7 +62,7 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 #ifdef KOS_CFG_STKCHK
 	memset(tcb->ctsk.stk, 0xCC, tcb->ctsk.stksz);
 #endif
-	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 4 - 16*4);
+	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 16*4);
 	sp[0] = 0;								// R4
 	sp[1] = 0;								// R5
 	sp[2] = 0;								// R6

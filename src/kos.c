@@ -96,7 +96,7 @@ void kos_schedule_nolock(void)
 	g_kos_cur_tcb = next_tcb;
 	
 	/* コンテキストスイッチ */
-	{
+	if(cur_tcb != next_tcb) {
 		void **backup_sp;
 		void *new_sp;
 		
@@ -309,6 +309,10 @@ static void kos_init_vars(void)
 	}
 	
 	kos_init_cyc();
+	
+#ifdef KOS_CFG_STKCHK
+	memset(g_kos_isr_stk, 0xCC, g_kos_isr_stksz);
+#endif
 }
 
 static void kos_init_tsks(void)
@@ -349,8 +353,8 @@ void kos_init(void)
 {
 	kos_lock;
 	
-	kos_init_regs();
 	kos_init_vars();
+	kos_init_regs();
 	kos_init_tsks();
 	kos_init_irq();
 	

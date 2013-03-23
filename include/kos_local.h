@@ -97,6 +97,8 @@ extern kos_sem_cb_t	g_kos_sem_cb_inst[];
 extern kos_flg_cb_t	g_kos_flg_cb_inst[];
 extern kos_cyc_cb_t	g_kos_cyc_cb_inst[];
 
+extern kos_uint_t	g_kos_isr_stk[];
+
 extern void			*g_kos_idle_sp;
 extern kos_list_t	g_kos_tmo_wait_list;
 extern kos_bool_t	g_kos_dsp;
@@ -107,6 +109,7 @@ extern const kos_uint_t g_kos_max_flg;
 extern const kos_uint_t g_kos_max_cyc;
 extern const kos_uint_t g_kos_max_pri;
 extern const kos_uint_t g_kos_max_intno;
+extern const kos_uint_t	g_kos_isr_stksz;
 
 void kos_start_kernel(void);
 void kos_arch_setup_systick_handler(void);	/* for kos_arch.c */
