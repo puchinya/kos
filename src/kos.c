@@ -370,31 +370,7 @@ kos_er_t kos_iget_tid(kos_id_t *p_tskid)
 	return KOS_E_OK;
 }
 
-kos_er_t kos_loc_cpu(void)
-{
-	__disable_irq();
-	return KOS_E_OK;
-}
-
-kos_er_t kos_iloc_cpu(void)
-{
-	__disable_irq();
-	return KOS_E_OK;
-}
-
-kos_er_t kos_unl_cpu(void)
-{
-	__enable_irq();
-	return KOS_E_OK;
-}
-
-kos_er_t kos_iunl_cpu(void)
-{
-	__enable_irq();
-	return KOS_E_OK;
-}
-
-kos_er_t kos_dig_kos_dsp(void)
+kos_er_t kos_dis_dsp(void)
 {
 	g_kos_dsp = KOS_TRUE;
 	
@@ -423,14 +399,14 @@ __asm kos_bool_t kos_sns_ctx(void)
 	BX LR
 }
 
-kos_bool_t kos_sng_kos_dsp(void)
+kos_bool_t kos_sns_dsp(void)
 {
 	return g_kos_dsp;
 }
 
 kos_bool_t kos_sns_dpn(void)
 {
-	return g_kos_dsp || kos_sns_ctx();
+	return g_kos_dsp | kos_sns_ctx() | kos_sns_loc();
 }
 
 /*-----------------------------------------------------------------------------
@@ -459,8 +435,3 @@ kos_er_t kos_def_inh(kos_intno_t intno, const kos_dinh_t *pk_dinh)
 	
 	return KOS_E_OK;
 }
-
-/*-----------------------------------------------------------------------------
-	システム割り込みハンドラ
------------------------------------------------------------------------------*/
-

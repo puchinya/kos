@@ -23,6 +23,40 @@ void kos_arch_setup_systick_handler(void)
 }
 
 /*-----------------------------------------------------------------------------
+	CPU lock API's
+-----------------------------------------------------------------------------*/
+kos_er_t kos_loc_cpu(void)
+{
+	__disable_irq();
+	return KOS_E_OK;
+}
+
+kos_er_t kos_iloc_cpu(void)
+{
+	__disable_irq();
+	return KOS_E_OK;
+}
+
+kos_er_t kos_unl_cpu(void)
+{
+	__enable_irq();
+	return KOS_E_OK;
+}
+
+kos_er_t kos_iunl_cpu(void)
+{
+	__enable_irq();
+	return KOS_E_OK;
+}
+
+__asm kos_bool_t kos_sns_loc(void)
+{
+	MRS	R0, PRIMASK
+	AND R0, #1
+	BX	LR
+}
+
+/*-----------------------------------------------------------------------------
 	archtecuture inplement API
 -----------------------------------------------------------------------------*/
 kos_er_t kos_dis_int(kos_intno_t intno)
