@@ -129,6 +129,11 @@ typedef struct {
 	kos_uint_t	suscnt;
 } kos_rtsk_t;
 
+typedef struct {
+	kos_stat_t	tskstat;
+	kos_stat_t	tskwait;
+} kos_rtst_t;
+
 typedef unsigned int kos_intno_t;
 
 typedef struct {
@@ -157,15 +162,16 @@ kos_er_t kos_exd_tsk(kos_id_t tskid);
 kos_er_t kos_ter_tsk(kos_id_t tskid);
 kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri);
 kos_er_t kos_get_pri(kos_id_t tskid, kos_pri_t *p_tskpri) __attribute__((__nonnull__(2)));
-kos_er_t kos_ref_tsk(kos_id_t tskid);
-kos_er_t kos_ref_tst(kos_id_t tskid);
+kos_er_t kos_ref_tsk(kos_id_t tskid, kos_rtsk_t *pk_rtsk);
+kos_er_t kos_ref_tst(kos_id_t tskid, kos_rtst_t *pk_rtst);
 
-kos_er_t kos_wup_tsk(kos_id_t tskid);
-kos_er_t kos_iwup_tsk(kos_id_t tskid);
 kos_er_t kos_tslp_tsk(kos_tmo_t tmout);
 static KOS_INLINE kos_er_t kos_slp_tsk(void) { return kos_tslp_tsk(KOS_TMO_FEVR); }
+kos_er_t kos_wup_tsk(kos_id_t tskid);
+kos_er_t kos_iwup_tsk(kos_id_t tskid);
+kos_er_t kos_rel_tsk(kos_id_t tskid);
+kos_er_t kos_irel_tsk(kos_id_t tskid);
 kos_er_t kos_dly_tsk(kos_reltim_t dlytim);
-
 
 /* 同期・通信機能/セマフォ */
 #ifdef KOS_CFG_SPT_SEM

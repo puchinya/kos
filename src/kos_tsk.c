@@ -85,7 +85,7 @@ kos_er_t kos_del_tsk(kos_id_t tskid)
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(tskid > g_kos_max_tsk)
-		return (kos_er_uint_t)KOS_E_ID;
+		return KOS_E_ID;
 #endif
 	
 	er = KOS_E_OK;
@@ -99,7 +99,7 @@ kos_er_t kos_del_tsk(kos_id_t tskid)
 	} else {
 		tcb = kos_get_tcb(tskid);
 		if(!tcb) {
-			er = (kos_er_uint_t)KOS_E_NOEXS;
+			er = KOS_E_NOEXS;
 			goto end;
 		}
 	}
@@ -314,14 +314,16 @@ end:
 	return er;
 }
 
-kos_er_t kos_rel_wai(kos_id_t tskid)
+kos_er_t kos_ref_tsk(kos_id_t tskid, kos_rtsk_t *pk_rtsk)
 {
-	kos_er_t er;
 	kos_tcb_t *tcb;
+	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(tskid > g_kos_max_tsk)
 		return KOS_E_ID;
+	if(pk_rtsk == KOS_NULL)
+		return KOS_E_PAR;
 #endif
 	
 	er = KOS_E_OK;
@@ -329,26 +331,79 @@ kos_er_t kos_rel_wai(kos_id_t tskid)
 	kos_lock;
 	
 	if(tskid == KOS_TSK_SELF) {
-		/* 自タスクが指定されたときはE_OBJエラー。 */
-		er = KOS_E_OBJ;
-		goto end;
+		tcb = g_kos_cur_tcb;
 	} else {
 		tcb = kos_get_tcb(tskid);
-		if(!tcb) {
+		if(tcb == KOS_NULL) {
 			er = KOS_E_NOEXS;
 			goto end;
 		}
 	}
 	
-	if(!tcb->st.tskstat & KOS_TTS_WAI) {
-		er = KOS_E_OBJ;
-		goto end;
+	*pk_rtsk = tcb->st;
+end:
+	kos_unlock;
+	
+	return er;
+}
+
+kos_er_t kos_ref_tst(kos_id_t tskid, kos_rtst_t *pk_rtst)
+{
+	kos_tcb_t *tcb;
+	kos_er_t er;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskid > g_kos_max_tsk)
+		return KOS_E_ID;
+	if(pk_rtst == KOS_NULL)
+		return KOS_E_PAR;
+#endif
+	
+	er = KOS_E_OK;
+	
+	kos_lock;
+	
+	if(tskid == KOS_TSK_SELF) {
+		tcb = g_kos_cur_tcb;
+	} else {
+		tcb = kos_get_tcb(tskid);
+		if(tcb == KOS_NULL) {
+			er = KOS_E_NOEXS;
+			goto end;
+		}
 	}
 	
-	kos_cancel_wait_nolock(tcb, KOS_E_RLWAI);
-	kos_schedule();
-	
+	pk_rtst->tskstat = tcb->st.tskstat;
+	pk_rtst->tskwait = tcb->st.tskwait;
 end:
+	kos_unlock;
+	
+	return er;
+}
+
+kos_er_t kos_tslp_tsk(kos_tmo_t tmout)
+{
+	kos_tcb_t *tcb;
+	kos_er_t er;
+	
+	kos_lock;
+	
+	tcb = g_kos_cur_tcb;
+	
+	if(tcb->st.wupcnt > 0) {
+		tcb->st.wupcnt--;
+		er = KOS_E_OK;
+	} else {
+		if(tmout == KOS_TMO_POL) {
+			er = KOS_E_TMOUT;
+		} else {
+			tcb->st.lefttmo = tmout;
+			tcb->st.wobjid = 0;
+			tcb->st.tskwait = KOS_TTW_SLP;
+			er = kos_wait_nolock(tcb);
+		}
+	}
+	
 	kos_unlock;
 	
 	return er;
@@ -441,30 +496,84 @@ end:
 	return er;
 }
 
-kos_er_t kos_tslp_tsk(kos_tmo_t tmout)
+kos_er_t kos_rel_wai(kos_id_t tskid)
 {
-	kos_tcb_t *tcb;
 	kos_er_t er;
+	kos_tcb_t *tcb;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskid > g_kos_max_tsk)
+		return KOS_E_ID;
+#endif
+	
+	er = KOS_E_OK;
 	
 	kos_lock;
 	
-	tcb = g_kos_cur_tcb;
-	
-	if(tcb->st.wupcnt > 0) {
-		tcb->st.wupcnt--;
-		er = KOS_E_OK;
+	if(tskid == KOS_TSK_SELF) {
+		/* 自タスクが指定されたときはE_OBJエラー。 */
+		er = KOS_E_OBJ;
+		goto end;
 	} else {
-		if(tmout == KOS_TMO_POL) {
-			er = KOS_E_TMOUT;
-		} else {
-			tcb->st.lefttmo = tmout;
-			tcb->st.wobjid = 0;
-			tcb->st.tskwait = KOS_TTW_SLP;
-			er = kos_wait_nolock(tcb);
+		tcb = kos_get_tcb(tskid);
+		if(!tcb) {
+			er = KOS_E_NOEXS;
+			goto end;
 		}
 	}
 	
+	/* 待ち状態または二重待ち状態でなければエラー */
+	if(!(tcb->st.tskstat & KOS_TTS_WAI)) {
+		er = KOS_E_OBJ;
+		goto end;
+	}
+	
+	kos_cancel_wait_nolock(tcb, KOS_E_RLWAI);
+	kos_schedule();
+	
+end:
 	kos_unlock;
+	
+	return er;
+}
+
+kos_er_t kos_irel_wai(kos_id_t tskid)
+{
+	kos_er_t er;
+	kos_tcb_t *tcb;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskid > g_kos_max_tsk)
+		return KOS_E_ID;
+#endif
+	
+	er = KOS_E_OK;
+	
+	kos_ilock;
+	
+	if(tskid == KOS_TSK_SELF) {
+		/* 自タスクが指定されたときはE_OBJエラー。 */
+		er = KOS_E_OBJ;
+		goto end;
+	} else {
+		tcb = kos_get_tcb(tskid);
+		if(!tcb) {
+			er = KOS_E_NOEXS;
+			goto end;
+		}
+	}
+	
+	/* 待ち状態または二重待ち状態でなければエラー */
+	if(!(tcb->st.tskstat & KOS_TTS_WAI)) {
+		er = KOS_E_OBJ;
+		goto end;
+	}
+	
+	kos_cancel_wait_nolock(tcb, KOS_E_RLWAI);
+	kos_ischedule();
+	
+end:
+	kos_iunlock;
 	
 	return er;
 }
