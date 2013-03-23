@@ -1,3 +1,12 @@
+/*!
+ *	@file	kos_flg.c
+ *	@brief	event flag API's implement.
+ *
+ *	Copyright (c) 2013 puchinya All rights reserved.<br>
+ *	@b License BSD 2-Clause license
+ *	@b Create 2013/03/23
+ *	@author	puchinya
+ */
 
 #include "kos_local.h"
 

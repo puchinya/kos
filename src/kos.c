@@ -12,38 +12,10 @@ extern void KOS_INIT_TSK(void);
 /*-----------------------------------------------------------------------------
 	グローバル変数定義
 -----------------------------------------------------------------------------*/
-kos_tcb_t	*g_kos_cur_tcb;							/* execution task control block */
-
-kos_list_t	g_kos_rdy_que[KOS_MAX_PRI];				/* レディーキュー */
-
-kos_tcb_t	*g_kos_tcb[KOS_MAX_TSK];
-kos_sem_cb_t *g_kos_sem_cb[KOS_MAX_SEM];
-kos_flg_cb_t *g_kos_flg_cb[KOS_MAX_FLG];
-kos_cyc_cb_t *g_kos_cyc_cb[KOS_MAX_CYC];
-
-kos_tcb_t	g_kos_tcb_inst[KOS_MAX_TSK];
-kos_sem_cb_t g_kos_sem_cb_inst[KOS_MAX_SEM];
-kos_flg_cb_t g_kos_flg_cb_inst[KOS_MAX_FLG];
-kos_cyc_cb_t g_kos_cyc_cb_inst[KOS_MAX_CYC];
-
-kos_dinh_t	g_kos_dinh_list[KOS_MAX_INTNO + 1];
-
-kos_uint_t g_kos_isr_stk[KOS_ISR_STKSIZE / sizeof(kos_uint_t)];
-void *g_kos_idle_sp;
-
-const kos_uint_t g_kos_max_tsk = KOS_MAX_TSK;
-const kos_uint_t g_kos_max_sem = KOS_MAX_SEM;
-const kos_uint_t g_kos_max_flg = KOS_MAX_FLG;
-const kos_uint_t g_kos_max_cyc = KOS_MAX_CYC;
-const kos_uint_t g_kos_max_pri = KOS_MAX_PRI;
-const kos_uint_t g_kos_max_intno = KOS_MAX_INTNO;
-const kos_uint_t g_kos_isr_stksz = KOS_ISR_STKSIZE;
 
 /*-----------------------------------------------------------------------------
 	ファイル内変数定義
 -----------------------------------------------------------------------------*/
-static kos_list_t s_tmo_wait_list;			/* タイムアウト待ちのタスクのリスト */
-static kos_bool_t s_dsp;					/* ディスパッチ禁止状態 */
 
 /*-----------------------------------------------------------------------------
 	ファイル内関数プロトタイプ宣言
@@ -54,16 +26,6 @@ static void kos_swap_PSP(void **backup_sp, void *new_sp);
 static void kos_switch_ctx(void **bk_sp, void *new_sp);
 static void kos_iswitch_ctx(void **bk_sp, void *new_sp);
 void kos_set_ctx(void *new_sp);
-
-void *kos_malloc(kos_size_t size)
-{
-	return malloc(size);
-}
-
-void kos_free(void *p)
-{
-	free(p);
-}
 
 int kos_find_null(void **a, int len)
 {
@@ -84,7 +46,7 @@ void kos_schedule_nolock(void)
 	kos_tcb_t *cur_tcb, *next_tcb;
 	kos_list_t *rdy_que;
 	
-	if(s_dsp) return;
+	if(g_kos_dsp) return;
 	
 	/* 探索する下限優先度を決める */	
 	cur_tcb = g_kos_cur_tcb;
@@ -92,10 +54,10 @@ void kos_schedule_nolock(void)
 		if(cur_tcb->st.tskstat == KOS_TTS_RUN) {
 			maxpri = cur_tcb->st.tskpri-1;
 		} else {
-			maxpri = KOS_MAX_PRI;
+			maxpri = g_kos_max_pri;
 		}
 	} else {
-		maxpri = KOS_MAX_PRI;
+		maxpri = g_kos_max_pri;
 	}
 	
 	/* レディキューを探索 */
@@ -267,7 +229,7 @@ void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
 void kos_schedule(void)
 {
 #ifdef KOS_ENABLE_PENDSV_SCHEDULE
-	if(!s_dsp) {
+	if(!g_kos_dsp) {
 		kos_set_pend_sv();
 		kos_unlock;
 		kos_lock;
@@ -280,7 +242,7 @@ void kos_schedule(void)
 void kos_ischedule(void)
 {
 #ifdef KOS_ENABLE_PENDSV_SCHEDULE
-	if(!s_dsp) {
+	if(!g_kos_dsp) {
 		kos_set_pend_sv();
 	}
 #else
@@ -338,18 +300,15 @@ static void kos_init_vars(void)
 	int i;
 	
 	g_kos_cur_tcb = KOS_NULL;
+	g_kos_dsp = KOS_TRUE;
 	
-	memset(g_kos_tcb, 0, sizeof(g_kos_tcb));
+	kos_list_init(&g_kos_tmo_wait_list);
 	
-	for(i = 0; i < KOS_MAX_PRI; i++) {
+	for(i = 0; i < g_kos_max_pri; i++) {
 		kos_list_init(&g_kos_rdy_que[i]);
 	}
 	
-	kos_list_init(&s_tmo_wait_list);
-	
 	kos_init_cyc();
-	
-	s_dsp = KOS_TRUE;
 }
 
 static void kos_init_tsks(void)
@@ -422,7 +381,7 @@ kos_er_t kos_wait_nolock(kos_tcb_t *tcb)
 	}
 	/* 無限待ちでなければタイムアウトリストにもつなげる */
 	if(tcb->st.lefttmo != KOS_TMO_FEVR) {
-		kos_list_insert_prev(&s_tmo_wait_list, &tcb->tmo_list);
+		kos_list_insert_prev(&g_kos_tmo_wait_list, &tcb->tmo_list);
 	}
 	
 	kos_schedule();
@@ -435,7 +394,7 @@ void kos_process_tmo(void)
 	int do_schedule = 0;
 	
 	kos_list_t *l, *end, *next;
-	end = &s_tmo_wait_list;
+	end = &g_kos_tmo_wait_list;
 	for(l = end->next; l != end; ) {
 		kos_tcb_t *tcb;
 		next = l->next;
@@ -515,9 +474,9 @@ kos_er_t kos_iunl_cpu(void)
 	return KOS_E_OK;
 }
 
-kos_er_t kos_dis_dsp(void)
+kos_er_t kos_dig_kos_dsp(void)
 {
-	s_dsp = KOS_TRUE;
+	g_kos_dsp = KOS_TRUE;
 	
 	return KOS_E_OK;
 }
@@ -526,8 +485,8 @@ kos_er_t kos_ena_dsp(void)
 {
 	kos_lock;
 	
-	if(s_dsp) {
-		s_dsp = KOS_FALSE;
+	if(g_kos_dsp) {
+		g_kos_dsp = KOS_FALSE;
 		kos_schedule();
 	}
 	
@@ -544,14 +503,14 @@ __asm kos_bool_t kos_sns_ctx(void)
 	BX LR
 }
 
-kos_bool_t kos_sns_dsp(void)
+kos_bool_t kos_sng_kos_dsp(void)
 {
-	return s_dsp;
+	return g_kos_dsp;
 }
 
 kos_bool_t kos_sns_dpn(void)
 {
-	return s_dsp || kos_sns_ctx();
+	return g_kos_dsp || kos_sns_ctx();
 }
 
 /*-----------------------------------------------------------------------------

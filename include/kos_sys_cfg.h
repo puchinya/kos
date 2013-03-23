@@ -16,5 +16,7 @@
 #define KOS_MAX_ACT_CNT		0xFF	/* act_tskの上限キューイング数 */
 #define KOS_MAX_WUP_CNT		0xFF	/* wup_tskの上限キューイング数 */
 #define KOS_MAX_SUS_CNT		0xFF	/* sus_tskの上限キューイング数 */
+#define KOS_TMIN_TPRI		1
+#define KOS_TMAX_TPRI		KOS_MAX_PRI
 
 #endif

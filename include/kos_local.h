@@ -1,3 +1,12 @@
+/*!
+ *	@file	kos_local.h
+ *	@brief	local definitions header file.
+ *
+ *	Copyright (c) 2013 puchinya All rights reserved.<br>
+ *	@b License BSD 2-Clause license
+ *	@b Create 2013/03/23
+ *	@author	puchinya
+ */
 
 #ifndef __KOS_LOCAL_H__
 #define __KOS_LOCAL_H__
@@ -88,6 +97,10 @@ extern kos_sem_cb_t	g_kos_sem_cb_inst[];
 extern kos_flg_cb_t	g_kos_flg_cb_inst[];
 extern kos_cyc_cb_t	g_kos_cyc_cb_inst[];
 
+extern void			*g_kos_idle_sp;
+extern kos_list_t	g_kos_tmo_wait_list;
+extern kos_bool_t	g_kos_dsp;
+
 extern const kos_uint_t g_kos_max_tsk;
 extern const kos_uint_t g_kos_max_sem;
 extern const kos_uint_t g_kos_max_flg;
@@ -124,9 +137,8 @@ static KOS_INLINE int kos_list_empty(kos_list_t *l)
 	return l == l->next;
 }
 
+void kos_init(void);
 int kos_find_null(void **a, int len);
-void *kos_malloc(kos_size_t size);
-void kos_free(void *p);
 
 void kos_process_tmo(void);
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb);

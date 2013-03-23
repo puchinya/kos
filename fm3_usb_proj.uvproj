@@ -468,6 +468,11 @@
               <FileType>1</FileType>
               <FilePath>.\src\kos_tim.c</FilePath>
             </File>
+            <File>
+              <FileName>kos_vars.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kos_vars.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

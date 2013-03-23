@@ -1,3 +1,12 @@
+/*!
+ *	@file	kos_cyc.c
+ *	@brief	cyclic handler API's implement.
+ *
+ *	Copyright (c) 2013 puchinya All rights reserved.<br>
+ *	@b License BSD 2-Clause license
+ *	@b Create 2013/03/23
+ *	@author	puchinya
+ */
 
 #include "kos_local.h"
 #include <string.h>
@@ -55,7 +64,6 @@ kos_er_t kos_cre_cyc(const kos_ccyc_t *pk_ccyc)
 	empty_index = kos_find_null((void **)g_kos_cyc_cb, g_kos_max_cyc);
 	if(empty_index < 0) {
 		er_id = KOS_E_NOID;
-		kos_free(cb);
 		goto end;
 	}
 	

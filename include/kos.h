@@ -1,8 +1,13 @@
 /*!
  *	@file	kos.h
+ *	@brief	KOS API's header.
+ *
+ *	Copyright (c) 2013 puchinya All rights reserved.<br>
+ *	@b License BSD 2-Clause license
+ *	@b Create 2013/03/23
  *	@author	puchinya
- *	@date	2012.12.22
  */
+
 #ifndef __KOS_H__
 #define __KOS_H__
 
@@ -250,6 +255,7 @@ typedef struct {
 kos_er_id_t kos_cre_dtq(const kos_cdtq_t *pk_cdtq);
 kos_er_t kos_del_dtq(kos_id_t dtqid);
 kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout);
+kos_er_t kos_ipsnd_dtq(kos_id_t dtqid, kos_vp_int_t data);
 kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout);
 kos_er_t kos_ref_dtq(kos_id_t dtqid, kos_rdtq_t *pk_rdtq);
 
@@ -272,9 +278,9 @@ kos_er_t kos_isig_tim(void); /* 外部から呼ぶ必要なし */
 #define KOS_TCYC_STA	0x01
 
 typedef struct {
-	kos_atr_t			cycatr;
+	kos_atr_t		cycatr;
 	kos_vp_int_t	exinf;
-	kos_fp_t			cychdr;
+	kos_fp_t		cychdr;
 	kos_reltim_t	cyctim;
 	kos_reltim_t	cycphs;
 } kos_ccyc_t;
@@ -310,12 +316,5 @@ kos_bool_t kos_sns_dpn(void);
 kos_er_t kos_def_inh(kos_intno_t intno, const kos_dinh_t *pk_dinh) __attribute__((__nonnull__(2)));
 kos_er_t kos_dis_int(kos_intno_t intno);
 kos_er_t kos_ena_int(kos_intno_t intno);
-
-
-/* 初期化関数
- * 初期化後はディスパッチ禁止状態になっています。
- * タスク生成後に禁止状態を解除してください。
- */
-void kos_init(void);
 
 #endif
