@@ -14,36 +14,27 @@ static KOS_INLINE kos_flg_cb_t *kos_get_flg_cb(kos_id_t flgid)
 kos_er_id_t kos_cre_flg(const kos_cflg_t *pk_cflg)
 {
 	kos_flg_cb_t *cb;
-	kos_cflg_t *cflg_bk;
 	int empty_index;
 	kos_er_id_t er_id;
 	
 	kos_lock;
 	
-	cb = (kos_flg_cb_t *)kos_malloc(sizeof(kos_flg_cb_t) + sizeof(kos_cflg_t));
-	if(!cb) {
-		er_id = KOS_E_NOMEM;
-		goto end;
-	}
 	empty_index = kos_find_null((void **)g_kos_flg_cb, g_kos_max_flg);
 	if(empty_index < 0) {
 		er_id = KOS_E_NOID;
-		kos_free(cb);
 		goto end;
 	}
 	
+	cb = &g_kos_flg_cb_inst[empty_index];
 	g_kos_flg_cb[empty_index] = cb;
 	
-	cflg_bk = (kos_cflg_t *)((uint8_t *)cb + sizeof(kos_flg_cb_t));
-	*cflg_bk = *pk_cflg;
-	cb->cflg = cflg_bk;
-	
-	cb->flgptn = cflg_bk->iflgptn;
+	cb->cflg = *pk_cflg;
+	cb->flgptn = pk_cflg->iflgptn;
 	kos_list_init(&cb->wait_tsk_list);
 	
-	kos_unlock;
-end:
 	er_id = empty_index + 1;
+end:
+	kos_unlock;
 	
 	return er_id;
 }
@@ -146,7 +137,7 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 				goto end;
 		}
 		*cb->relptn = cb->flgptn;
-		if(cb->cflg->flgatr & KOS_TA_CLR) {
+		if(cb->cflg.flgatr & KOS_TA_CLR) {
 			/* タスクをひとつ解除した時点でクリアする(仕様) */
 			cb->flgptn = 0;
 		}

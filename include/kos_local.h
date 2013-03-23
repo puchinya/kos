@@ -52,13 +52,13 @@ struct kos_tcb_t {
 };
 
 struct kos_sem_cb_t {
-	const kos_csem_t	*csem;			/* semaphore create parameters */
+	kos_csem_t			csem;			/* semaphore create parameters */
 	kos_uint_t			semcnt;			/* semaphore counter */
 	kos_list_t			wait_tsk_list;	/* wait task list */
 };
 
 struct kos_flg_cb_t {
-	const kos_cflg_t	*cflg;
+	kos_cflg_t			cflg;
 	kos_flgptn_t		flgptn;
 	kos_list_t			wait_tsk_list;
 #ifndef KOS_CFG_SPT_FLG_WMUL
@@ -70,7 +70,7 @@ struct kos_flg_cb_t {
 
 struct kos_cyc_cb_t {
 	kos_list_t			list;
-	const kos_ccyc_t	*ccyc;
+	kos_ccyc_t			ccyc;
 	kos_rcyc_t			st;
 };
 

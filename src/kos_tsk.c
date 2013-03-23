@@ -67,13 +67,13 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 	sp[10] = 0;								// R2
 	sp[11] = 0;								// R3
 	sp[12] = 0;								// R12
-	sp[13] = (uint32_t)kos_tsk_entry;		// LR
+	sp[13] = 0;								// LR
 	sp[14] = (uint32_t)kos_tsk_entry;		// PC
-	sp[15] = 0x01000000;					// PSR
+	sp[15] = 0x21000000;					// PSR
 	
-	kos_unlock;
-end:
 	er_id = empty_index + 1;
+end:
+	kos_unlock;
 	
 	return er_id;
 }

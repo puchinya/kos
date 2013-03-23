@@ -18,8 +18,8 @@ void kos_arch_setup_systick_handler(void)
 	period = SystemCoreClock / 100;	
 	SysTick_Config(period);
 	
-	//NVIC_SetPriority(PendSV_IRQn, 255);
-	//NVIC_SetPriority(SysTick_IRQn, 254);
+	NVIC_SetPriority(PendSV_IRQn, 255);
+	NVIC_SetPriority(SysTick_IRQn, 254);
 }
 
 /*-----------------------------------------------------------------------------
@@ -80,9 +80,9 @@ __asm void PendSV_Handler(void)
 	STMDB		R0!, {R4-R11}
 	MSR			PSP, R0
 	
-	MOV			R4, LR
+	MOV			R11, LR
 	BL			kos_schedule_nolock
-	MOV			LR, R4
+	MOV			LR, R11
 	
 	/* load R4-R11 from PSP */
 	MRS			R0, PSP
@@ -90,6 +90,11 @@ __asm void PendSV_Handler(void)
 	MSR			PSP, R0
 	
 	BX			LR
+}
+
+void NMI_Handler(void)
+{
+	__NOP();
 }
 
 void HardFault_Handler(void)

@@ -13,13 +13,21 @@ extern void KOS_INIT_TSK(void);
 	グローバル変数定義
 -----------------------------------------------------------------------------*/
 kos_tcb_t	*g_kos_cur_tcb;							/* execution task control block */
-kos_dinh_t	g_kos_dinh_list[KOS_MAX_INTNO + 1];
+
 kos_list_t	g_kos_rdy_que[KOS_MAX_PRI];				/* レディーキュー */
-kos_tcb_t	g_kos_tcb_inst[KOS_MAX_TSK];
+
 kos_tcb_t	*g_kos_tcb[KOS_MAX_TSK];
 kos_sem_cb_t *g_kos_sem_cb[KOS_MAX_SEM];
 kos_flg_cb_t *g_kos_flg_cb[KOS_MAX_FLG];
 kos_cyc_cb_t *g_kos_cyc_cb[KOS_MAX_CYC];
+
+kos_tcb_t	g_kos_tcb_inst[KOS_MAX_TSK];
+kos_sem_cb_t g_kos_sem_cb_inst[KOS_MAX_SEM];
+kos_flg_cb_t g_kos_flg_cb_inst[KOS_MAX_FLG];
+kos_cyc_cb_t g_kos_cyc_cb_inst[KOS_MAX_CYC];
+
+kos_dinh_t	g_kos_dinh_list[KOS_MAX_INTNO + 1];
+
 kos_uint_t g_kos_isr_stk[KOS_ISR_STKSIZE / sizeof(kos_uint_t)];
 void *g_kos_idle_sp;
 
@@ -389,7 +397,8 @@ void kos_start_kernel(void)
 	
 	/* idle */
 	for(;;) {
-		__WFI();
+		//__WFI();
+		__WFI;
 	}
 }
 
