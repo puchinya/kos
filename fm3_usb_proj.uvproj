@@ -473,6 +473,11 @@
               <FileType>1</FileType>
               <FilePath>.\src\kos_vars.c</FilePath>
             </File>
+            <File>
+              <FileName>clib_itm_stub.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\clib_itm_stub.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

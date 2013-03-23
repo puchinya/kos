@@ -26,6 +26,7 @@ static void kos_tsk_entry(kos_tcb_t *tcb)
 		kos_lock;
 		tcb->st.tskstat = KOS_TTS_DMT;
 		g_kos_pend_schedule = KOS_TRUE;
+		kos_dbgprintf("tsk:%04X DMT\r\n", tcb->id);
 		kos_schedule_nolock();
 		kos_unlock;
 	}

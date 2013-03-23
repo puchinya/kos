@@ -157,4 +157,13 @@ void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list);
 void kos_init_cyc(void);
 void kos_process_cyc(void);
 
+/* debug message */
+#define KOS_ENA_DBG_MSG
+#ifdef KOS_ENA_DBG_MSG
+#include <stdio.h>
+#define kos_dbgprintf(fmt, ...) printf(fmt, __VA_ARGS__)
+#else
+#define kos_dbgprintf(fmt, ...) 
+#endif
+
 #endif

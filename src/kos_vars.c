@@ -18,6 +18,9 @@ kos_cyc_cb_t	*g_kos_cyc_cb[KOS_MAX_CYC];
 kos_dinh_t		g_kos_dinh_list[KOS_MAX_INTNO + 1];
 
 /* non initialized variables. */
+#ifdef __ARMCC_VERSION
+#pragma arm section zidata = ".bss_noinit"
+#endif
 kos_list_t		g_kos_rdy_que[KOS_MAX_PRI];		/* ready queue. */
 kos_tcb_t		g_kos_tcb_inst[KOS_MAX_TSK];
 kos_sem_cb_t	g_kos_sem_cb_inst[KOS_MAX_SEM];
@@ -31,6 +34,9 @@ kos_bool_t		g_kos_dsp;						/* disabling dispatch */
 kos_bool_t		g_kos_pend_schedule;			/* pending scheduler */
 kos_list_t		g_kos_tmo_wait_list;			/* wating timeout. */
 void			*g_kos_idle_sp;
+#ifdef __ARMCC_VERSION
+#pragma arm section zidata
+#endif
 
 /* variables with an initial value. */
 

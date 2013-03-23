@@ -1,6 +1,7 @@
 
 #include "kos_local.h"
 #include <string.h>
+#include <stdio.h>
 
 extern void KOS_INIT_TSK(void);
 
@@ -58,6 +59,8 @@ void kos_schedule_impl_nolock(void)
 		cur_tcb->st.tskstat = KOS_TTS_RDY;
 		kos_list_insert_prev(&rdy_que[cur_tcb->st.tskpri-1],
 			(kos_list_t *)cur_tcb);
+		
+		kos_dbgprintf("tsk:%04X RDY\r\n", cur_tcb->id);
 	}
 	
 	if(next_tcb) {
@@ -67,6 +70,8 @@ void kos_schedule_impl_nolock(void)
 		
 		/* 切り替え先のタスクを実行状態へ変更 */
 		next_tcb->st.tskstat = KOS_TTS_RUN;
+		
+		kos_dbgprintf("tsk:%04X RUN\r\n", next_tcb->id);
 	}
 	
 	g_kos_cur_tcb = next_tcb;
@@ -97,6 +102,8 @@ void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
 {
 	tcb->st.tskstat = KOS_TTS_RDY;
 	kos_list_insert_prev(&g_kos_rdy_que[tcb->st.tskpri-1], (kos_list_t *)tcb);
+	
+	kos_dbgprintf("tsk:%04X RDY\r\n", tcb->id);
 	
 	g_kos_pend_schedule = KOS_TRUE;
 }
@@ -255,6 +262,7 @@ __asm void kos_init_regs(void)
 	MSR	CONTROL, R0
 	
 	BX	LR
+	NOP
 }
 
 void kos_init(void)
@@ -286,12 +294,10 @@ void kos_start_kernel(void)
 
 kos_er_t kos_wait_nolock(kos_tcb_t *tcb)
 {
-	if(tcb->st.tskwait == KOS_TTS_SUS) {
-		tcb->st.tskstat = KOS_TTS_WAS;
-	} else {
-		tcb->st.tskstat = KOS_TTS_WAI;
-		g_kos_pend_schedule = KOS_TRUE;
-	}
+	kos_dbgprintf("tsk:%04X WAI\r\n", tcb->id);
+	tcb->st.tskstat = KOS_TTS_WAI;
+	g_kos_pend_schedule = KOS_TRUE;
+	
 	/* 無限待ちでなければタイムアウトリストにもつなげる */
 	if(tcb->st.lefttmo != KOS_TMO_FEVR) {
 		kos_list_insert_prev(&g_kos_tmo_wait_list, &tcb->tmo_list);
