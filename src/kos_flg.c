@@ -61,11 +61,8 @@ kos_er_t kos_del_flg(kos_id_t flgid)
 	/* 待ち行列にいるタスクの待ちを解除 */
 	kos_cancel_wait_all_for_delapi_nolock(&cb->wait_tsk_list);
 	
-	/* コントロールブロックのメモリを開放 */
-	kos_free(cb);
-	
 	/* ID=>CB変換をクリア */
-	g_kos_sem_cb[flgid-1] = KOS_NULL;
+	g_kos_sem_cb[flgid - 1] = KOS_NULL;
 	
 end:
 	kos_unlock;
@@ -129,25 +126,107 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 			kos_schedule();
 		}
 #else
-		if(cb->wfmode == KOS_TWF_ANDW) {
-			if((cb->waiptn & cb->flgptn) != cb->waiptn)
-				goto end;
-		} else {
-			if(!(cb->waiptn & cb->flgptn))
-				goto end;
-		}
-		*cb->relptn = cb->flgptn;
-		if(cb->cflg.flgatr & KOS_TA_CLR) {
-			/* タスクをひとつ解除した時点でクリアする(仕様) */
-			cb->flgptn = 0;
-		}
-		kos_cancel_wait_nolock((kos_tcb_t *)cb->wait_tsk_list.next, KOS_E_OK);
-		kos_schedule();
+		do {
+			if(cb->wfmode == KOS_TWF_ANDW) {
+				if((cb->waiptn & cb->flgptn) != cb->waiptn)
+					break;
+			} else {
+				if(!(cb->waiptn & cb->flgptn))
+					break;
+			}
+			*cb->relptn = cb->flgptn;
+			if(cb->cflg.flgatr & KOS_TA_CLR) {
+				/* タスクをひとつ解除した時点でクリアする(仕様) */
+				cb->flgptn = 0;
+			}
+			kos_cancel_wait_nolock((kos_tcb_t *)cb->wait_tsk_list.next, KOS_E_OK);
+			kos_schedule();
+		} while(0);
 #endif
 	}
 
 end:
 	kos_unlock;
+	
+	return er;
+}
+
+kos_er_t kos_iset_flg(kos_id_t flgid, kos_flgptn_t setptn)
+{
+	kos_flg_cb_t *cb;
+	kos_er_t er;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(flgid > g_kos_max_flg || flgid == 0)
+		return KOS_E_ID;
+#endif
+	
+	er = KOS_E_OK;
+	
+	kos_ilock;
+	
+	cb = kos_get_flg_cb(flgid);
+	if(cb == KOS_NULL) {
+		er = KOS_E_NOEXS;
+		goto end;
+	}
+	
+	cb->flgptn |= setptn;
+	
+	if(!kos_list_empty(&cb->wait_tsk_list)) {
+#ifdef KOS_CFG_SPT_FLG_WMUL
+		kos_list_t *wait_tsk_list = &cb->wait_tsk_list;
+		kos_list_t *l;
+		int do_schedule = 0;
+		
+		for(l = wait_tsk_list->next; l != wait_tsk_list; l = l->next)
+		{
+			kos_tcb_t *tcb = (kos_tcb_t *)l;
+			
+			if(tcb->wait_info.flg.wfmode == KOS_TWF_ANDW) {
+				if((tcb->wait_info.flg.waiptn & cb->flgptn) != tcb->wait_info.flg.waiptn)
+					continue;
+			} else {
+				if(!(tcb->wait_info.flg.waiptn & cb->flgptn))
+					continue;
+			}
+			do_schedule = 1;
+			*tcb->wait_info.flg.relptn = cb->flgptn;
+			kos_cancel_wait_nolock(tcb, KOS_E_OK);
+			if(cb->cflg->flgatr & KOS_TA_CLR) {
+				/* タスクをひとつ解除した時点でクリアする(仕様) */
+				cb->flgptn = 0;
+				break;
+			}
+			if(!(cb->cflg->flgatr & KOS_TA_WMUL)) {
+				break;
+			}
+		}
+		
+		if(do_schedule) {
+			kos_ischedule();
+		}
+#else
+		do {
+			if(cb->wfmode == KOS_TWF_ANDW) {
+				if((cb->waiptn & cb->flgptn) != cb->waiptn)
+					break;
+			} else {
+				if(!(cb->waiptn & cb->flgptn))
+					break;
+			}
+			*cb->relptn = cb->flgptn;
+			if(cb->cflg.flgatr & KOS_TA_CLR) {
+				/* タスクをひとつ解除した時点でクリアする(仕様) */
+				cb->flgptn = 0;
+			}
+			kos_cancel_wait_nolock((kos_tcb_t *)cb->wait_tsk_list.next, KOS_E_OK);
+			kos_ischedule();
+		} while(0);
+#endif
+	}
+end:
+	kos_iunlock;
 	
 	return er;
 }

@@ -78,6 +78,47 @@ end:
 	return er_id;
 }
 
+kos_er_t kos_del_tsk(kos_id_t tskid)
+{
+	kos_er_t er;
+	kos_tcb_t *tcb;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskid > g_kos_max_tsk)
+		return (kos_er_uint_t)KOS_E_ID;
+#endif
+	
+	er = KOS_E_OK;
+	
+	kos_lock;
+
+	if(tskid == KOS_TSK_SELF) {
+		/* 自身で呼び出した場合は当然実行中なのでエラー */
+		er = KOS_E_OBJ;
+		goto end;
+	} else {
+		tcb = kos_get_tcb(tskid);
+		if(!tcb) {
+			er = (kos_er_uint_t)KOS_E_NOEXS;
+			goto end;
+		}
+	}
+	
+	/* 休止状態でなければ削除はできない。 */
+	if(tcb->st.tskstat != KOS_TTS_DMT) {
+		er = KOS_E_OBJ;
+		goto end;
+	}
+	
+	/* 登録解除 */
+	g_kos_tcb[tskid - 1] = KOS_NULL;
+	
+end:
+	kos_unlock;
+	
+	return er;
+}
+
 kos_er_t kos_act_tsk(kos_id_t tskid)
 {
 	kos_er_t er;
@@ -119,7 +160,6 @@ end:
 	return er;
 }
 
-
 kos_er_uint_t kos_can_act(kos_id_t tskid)
 {
 	kos_er_uint_t er;
@@ -157,6 +197,7 @@ kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
 {
 	kos_er_t er;
 	kos_tcb_t *tcb;
+	kos_pri_t cur_tskpri, new_tskpri;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(tskid > g_kos_max_tsk)
@@ -185,13 +226,49 @@ kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
 	}
 	
 	if(tskpri == KOS_TPRI_INI) {
-		tskpri = tcb->st.tskbpri;
+		tskpri = tcb->ctsk.itskpri;
 	}
 	
-	tcb->st.tskpri = tskpri;
+	/* ベース優先度を更新 */
+	tcb->st.tskbpri = tskpri;
 	
-	kos_schedule();
+	/* 新しい現在優先度の決定 */
+	new_tskpri = tskpri;
+	cur_tskpri = tcb->st.tskpri;
 	
+	if(new_tskpri > cur_tskpri)
+		new_tskpri = cur_tskpri;
+	
+	/* 現在優先度の更新 */
+	tcb->st.tskpri = new_tskpri;
+	
+	/* 現在優先度が変わったまたは現在優先度がベース優先度と
+		一致したときは追加処理を行う。*/
+	if(new_tskpri != cur_tskpri || new_tskpri == tskpri) {
+		
+		if(tskid == KOS_TSK_SELF) {
+			if(cur_tskpri <= new_tskpri) {
+				/* 一旦RDY状態に変えてスケジューリング */
+				kos_rdy_tsk_nolock(tcb);
+				
+				kos_schedule();
+			} else {
+				/* 優先度が高くなる場合は実行中のタスクは変化しないので何もしない */
+			}
+		} else {
+			/* RDYキューの繋げ直し */
+			if(tcb->st.tskstat == KOS_TTS_RDY) {
+				kos_list_remove(&tcb->wait_list);
+				kos_list_insert_prev(&g_kos_rdy_que[new_tskpri - 1],
+					&tcb->wait_list);
+			}
+			
+			/* 現在実行中のタスク(自タスク)より優先度が高くなっていればスケジューリング */
+			if(g_kos_cur_tcb->st.tskpri > new_tskpri) {
+				kos_schedule();
+			}
+		}
+	}
 end:
 	kos_unlock;
 	
@@ -252,7 +329,9 @@ kos_er_t kos_rel_wai(kos_id_t tskid)
 	kos_lock;
 	
 	if(tskid == KOS_TSK_SELF) {
-		tcb = g_kos_cur_tcb;
+		/* 自タスクが指定されたときはE_OBJエラー。 */
+		er = KOS_E_OBJ;
+		goto end;
 	} else {
 		tcb = kos_get_tcb(tskid);
 		if(!tcb) {
@@ -326,29 +405,26 @@ kos_er_t kos_iwup_tsk(kos_id_t tskid)
 	kos_er_t er;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
-	if(tskid > g_kos_max_tsk)
+	/* 非タスクコンテキストでは自タスクを指定できない。 */
+	if(tskid == KOS_TSK_SELF || tskid > g_kos_max_tsk)
 		return KOS_E_ID;
 #endif
 	
 	er = KOS_E_OK;
 	
-	kos_lock;
+	kos_ilock;
 	
-	if(tskid == KOS_TSK_SELF) {
-		tcb = g_kos_cur_tcb;
-	} else {
-		tcb = kos_get_tcb(tskid);
-		if(tcb == KOS_NULL) {
-			er = KOS_E_NOEXS;
-			goto end;
-		}
+	tcb = kos_get_tcb(tskid);
+	if(tcb == KOS_NULL) {
+		er = KOS_E_NOEXS;
+		goto end;
 	}
 	
 	if((tcb->st.tskstat & KOS_TTS_WAI) &&
 		tcb->st.tskwait == KOS_TTW_SLP)
 	{
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_schedule();
+		kos_ischedule();
 	} else if(tcb->st.tskstat == KOS_TTS_DMT) {
 		er = KOS_E_OBJ;
 		goto end;
@@ -360,7 +436,7 @@ kos_er_t kos_iwup_tsk(kos_id_t tskid)
 		tcb->st.wupcnt++;
 	}
 end:
-	kos_unlock;
+	kos_iunlock;
 	
 	return er;
 }

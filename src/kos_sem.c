@@ -62,11 +62,8 @@ kos_er_t kos_del_sem(kos_id_t semid)
 	/* 待ち行列にいるタスクの待ちを解除 */
 	kos_cancel_wait_all_for_delapi_nolock(&cb->wait_tsk_list);
 	
-	/* コントロールブロックのメモリを開放 */
-	kos_free(cb);
-	
 	/* ID=>CB変換をクリア */
-	g_kos_sem_cb[semid-1] = KOS_NULL;
+	g_kos_sem_cb[semid - 1] = KOS_NULL;
 	
 end:
 	kos_unlock;
@@ -148,6 +145,45 @@ kos_er_t kos_sig_sem(kos_id_t semid)
 	}
 end:
 	kos_unlock;
+	
+	return er;
+}
+
+kos_er_t kos_isig_sem(kos_id_t semid)
+{
+	kos_sem_cb_t *cb;
+	kos_er_t er;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(semid > g_kos_max_sem || semid == 0)
+		return KOS_E_ID;
+#endif
+	
+	er = KOS_E_OK;
+	
+	kos_ilock;
+	
+	cb = kos_get_sem_cb(semid);
+	if(cb == KOS_NULL) {
+		er = KOS_E_NOEXS;
+		goto end;
+	}
+	
+	if(kos_list_empty(&cb->wait_tsk_list)) {
+		if(cb->semcnt < cb->csem.maxsem) {
+			cb->semcnt++;
+		} else {
+			er = KOS_E_QOVR;
+			goto end;
+		}
+	} else {
+		kos_tcb_t *tcb = (kos_tcb_t *)cb->wait_tsk_list.next;
+		
+		kos_cancel_wait_nolock(tcb, KOS_E_OK);
+		kos_ischedule();
+	}
+end:
+	kos_iunlock;
 	
 	return er;
 }

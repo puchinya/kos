@@ -277,6 +277,17 @@ void kos_schedule(void)
 #endif
 }
 
+void kos_ischedule(void)
+{
+#ifdef KOS_ENABLE_PENDSV_SCHEDULE
+	if(!s_dsp) {
+		kos_set_pend_sv();
+	}
+#else
+	kos_schedule_nolock()
+#endif
+}
+
 /*
  *	同期・通信オブジェクト削除API用の待ち解除処理です
  *	リスト中のすべてのタスクに対して下記を行います。

@@ -93,6 +93,7 @@ kos_er_t kos_del_cyc(kos_id_t cycid)
 	er = KOS_E_OK;
 	
 	kos_lock;
+	
 	cb = kos_get_cyc_cb(cycid);
 	if(cb == KOS_NULL) {
 		er = KOS_E_NOEXS;
@@ -104,11 +105,8 @@ kos_er_t kos_del_cyc(kos_id_t cycid)
 		kos_list_remove(&cb->list);
 	}
 	
-	/* コントロールブロックのメモリを開放 */
-	kos_free(cb);
-	
 	/* ID=>CB変換をクリア */
-	g_kos_cyc_cb[cycid-1] = KOS_NULL;
+	g_kos_cyc_cb[cycid - 1] = KOS_NULL;
 	
 end:
 	kos_unlock;
@@ -165,6 +163,7 @@ kos_er_t kos_stp_cyc(kos_id_t cycid)
 	}
 	
 	if(cb->st.cycstat == KOS_TCYC_STA) {
+		kos_list_remove(&cb->list);
 		cb->st.cycstat = KOS_TCYC_STP;
 		cb->st.lefttim = 0; 		/* 必須ではない */
 	}

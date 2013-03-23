@@ -182,9 +182,9 @@ typedef struct {
 
 kos_er_id_t kos_cre_sem(const kos_csem_t *pk_csem);
 kos_er_t kos_del_sem(kos_id_t semid);
-kos_er_t kos_twai_sem(kos_id_t semid, kos_tmo_t tmout);
 kos_er_t kos_sig_sem(kos_id_t semid);
-static KOS_INLINE kos_er_t kos_isig_sem(kos_id_t semid) { return kos_sig_sem(semid); }
+kos_er_t kos_isig_sem(kos_id_t semid);
+kos_er_t kos_twai_sem(kos_id_t semid, kos_tmo_t tmout);
 static KOS_INLINE kos_er_t kos_wai_sem(kos_id_t semid) { return kos_twai_sem(semid, KOS_TMO_FEVR); }
 static KOS_INLINE kos_er_t kos_pol_sem(kos_id_t semid) { return kos_twai_sem(semid, KOS_TMO_POL); }
 kos_er_t kos_ref_sem(kos_id_t semid, kos_rsem_t *pk_rsem);
@@ -215,10 +215,10 @@ typedef struct {
 kos_er_id_t kos_cre_flg(const kos_cflg_t *pk_cflg);
 kos_er_t kos_del_flg(kos_id_t flgid);
 kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn);
+kos_er_t kos_iset_flg(kos_id_t flgid, kos_flgptn_t setptn);
 kos_er_t kos_clr_flg(kos_id_t flgid, kos_flgptn_t clrptn);
 kos_er_t kos_twai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 	kos_mode_t wfmode, kos_flgptn_t *p_flgptn, kos_tmo_t tmout);
-static KOS_INLINE kos_er_t kos_iset_flg(kos_id_t flgid, kos_flgptn_t setptn) { return kos_set_flg(flgid, setptn); }
 static KOS_INLINE kos_er_t kos_wai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 	kos_mode_t wfmode, kos_flgptn_t *p_flgptn) { return kos_twai_flg(flgid, waiptn, wfmode, p_flgptn, KOS_TMO_FEVR); }
 static KOS_INLINE kos_er_t kos_pol_flg(kos_id_t flgid, kos_flgptn_t waiptn,

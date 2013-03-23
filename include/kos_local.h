@@ -133,6 +133,7 @@ void kos_rdy_tsk_nolock(kos_tcb_t *tcb);
 kos_er_t kos_wait_nolock(kos_tcb_t *tcb);
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
 void kos_schedule(void);
+void kos_ischedule(void);
 void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list);
 
 /* kos_cyc.c */
