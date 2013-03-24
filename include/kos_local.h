@@ -96,10 +96,10 @@ extern kos_tcb_t	g_kos_tcb_inst[];
 extern kos_sem_cb_t	g_kos_sem_cb_inst[];
 extern kos_flg_cb_t	g_kos_flg_cb_inst[];
 extern kos_cyc_cb_t	g_kos_cyc_cb_inst[];
+extern kos_tcb_t	g_kos_idle_tcb_inst;
 
 extern kos_uint_t	g_kos_isr_stk[];
 
-extern void			*g_kos_idle_sp;
 extern kos_list_t	g_kos_tmo_wait_list;
 extern kos_bool_t	g_kos_dsp;
 extern kos_bool_t	g_kos_pend_schedule;

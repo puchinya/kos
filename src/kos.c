@@ -7,7 +7,6 @@ extern void KOS_INIT_TSK(void);
 #define kos_set_pend_sv()	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk; __DSB();
 
 void kos_schedule_impl_nolock(void);
-static void kos_swap_PSP(void **backup_sp, void *new_sp);
 
 int kos_find_null(void **a, int len)
 {
@@ -24,21 +23,20 @@ void kos_schedule_impl_nolock(void)
 	kos_tcb_t *cur_tcb, *next_tcb;
 	kos_list_t *rdy_que;
 	
-	/* 探索する下限優先度を決める */	
+	/* 切り替え先タスクを探索する下限優先度を決定する */	
 	cur_tcb = g_kos_cur_tcb;
-	if(cur_tcb != KOS_NULL) {
-		if(cur_tcb->st.tskstat == KOS_TTS_RUN) {
-			maxpri = cur_tcb->st.tskpri-1;
-		} else {
-			maxpri = g_kos_max_pri;
-		}
+
+	if(cur_tcb->st.tskstat == KOS_TTS_RUN) {
+		/* 実行状態なら高い優先度のみ探索 */
+		maxpri = cur_tcb->st.tskpri - 1;
 	} else {
+		/* 実行状態でなければ全優先度を探索 */
 		maxpri = g_kos_max_pri;
 	}
 	
-	/* レディキューを探索 */
-	rdy_que = g_kos_rdy_que;
+	/* 切り替え先タスクをRDYキューから探索 */
 	next_tcb = KOS_NULL;
+	rdy_que = g_kos_rdy_que;
 	for(i = 0; i < maxpri; i++) {
 		if(!kos_list_empty(&rdy_que[i])) {
 			next_tcb = (kos_tcb_t *)rdy_que[i].next;
@@ -48,12 +46,12 @@ void kos_schedule_impl_nolock(void)
 	
 	/* 現在のタスクが実行中で切り替え先が無ければ何もしない */	
 	if(next_tcb == KOS_NULL) {
-		if(cur_tcb == KOS_NULL || cur_tcb->st.tskstat == KOS_TTS_RUN) {
+		if(cur_tcb->st.tskstat == KOS_TTS_RUN) {
 			return;
 		}
 	}
 	
-	if(cur_tcb != KOS_NULL && cur_tcb->st.tskstat == KOS_TTS_RUN) {
+	if(cur_tcb->st.tskstat == KOS_TTS_RUN) {
 		/* 現在のタスクが実行状態ならレディキューの末尾へ移動 */
 		cur_tcb->st.tskstat = KOS_TTS_RDY;
 		kos_list_insert_prev(&rdy_que[cur_tcb->st.tskpri-1],
@@ -62,39 +60,22 @@ void kos_schedule_impl_nolock(void)
 		kos_dbgprintf("tsk:%04X RDY\r\n", cur_tcb->id);
 	}
 	
-	if(next_tcb) {
-		
-		/* 切り替え先のタスクをレディキューから削除 */
-		kos_list_remove((kos_list_t *)next_tcb);
-		
-		/* 切り替え先のタスクを実行状態へ変更 */
-		next_tcb->st.tskstat = KOS_TTS_RUN;
-		
-		kos_dbgprintf("tsk:%04X RUN\r\n", next_tcb->id);
-	}
+	/* 切り替え先のタスクをレディキューから削除 */
+	kos_list_remove((kos_list_t *)next_tcb);
+	
+	/* 切り替え先のタスクを実行状態へ変更 */
+	next_tcb->st.tskstat = KOS_TTS_RUN;
 	
 	g_kos_cur_tcb = next_tcb;
 	
+	kos_dbgprintf("tsk:%04X RUN\r\n", next_tcb->id);
+	
 	/* コンテキストスイッチ */
-	if(cur_tcb != next_tcb) {
-		void **backup_sp;
-		void *new_sp;
-		
-		backup_sp = cur_tcb ? &cur_tcb->sp : &g_kos_idle_sp;
-		new_sp = next_tcb ? next_tcb->sp : g_kos_idle_sp;
-		
-		kos_swap_PSP(backup_sp, new_sp);
-	}
-}
-
-static __asm void kos_swap_PSP(void **backup_sp, void *new_sp)
-{
 	/* PSPをバックアップ */
-	MRS		R2, PSP
-	STR		R2, [R0]
+	cur_tcb->sp = (void *)__get_PSP();
+	
 	/* 新しいPSPに変更 */
-	MSR		PSP, R1
-	BX		LR
+	__set_PSP((uint32_t)next_tcb->sp);
 }
 
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
@@ -109,6 +90,11 @@ void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
 
 void kos_wait_nolock(kos_tcb_t *tcb)
 {
+	if(g_kos_dsp) {
+		tcb->rel_wai_er = KOS_E_CTX;
+		return;
+	}
+	
 	kos_dbgprintf("tsk:%04X WAI\r\n", tcb->id);
 	tcb->st.tskstat = KOS_TTS_WAI;
 	g_kos_pend_schedule = KOS_TRUE;
@@ -212,7 +198,6 @@ static void kos_init_vars(void)
 {
 	int i;
 	
-	g_kos_cur_tcb = KOS_NULL;
 	g_kos_dsp = KOS_TRUE;
 	g_kos_pend_schedule = KOS_FALSE;
 	
@@ -223,6 +208,24 @@ static void kos_init_vars(void)
 	}
 	
 	kos_init_cyc();
+	
+	/* init idle task */
+	{
+		kos_tcb_t *idle_tcb = &g_kos_idle_tcb_inst;
+		
+		idle_tcb->id			= KOS_TSK_NONE;
+		idle_tcb->st.tskstat	= KOS_TTS_RUN;
+		idle_tcb->st.tskpri		= g_kos_max_pri;
+		idle_tcb->st.tskpri		= g_kos_max_pri;
+		idle_tcb->st.tskwait	= 0;
+		idle_tcb->st.wobjid		= 0;
+		idle_tcb->st.lefttmo	= 0;
+		idle_tcb->st.actcnt		= 0;
+		idle_tcb->st.wupcnt		= 0;
+		idle_tcb->st.suscnt		= 0;
+		
+		g_kos_cur_tcb = idle_tcb;
+	}
 	
 #ifdef KOS_CFG_STKCHK
 	memset(g_kos_isr_stk, 0xCC, g_kos_isr_stksz);
@@ -344,11 +347,7 @@ kos_er_t kos_iget_tid(kos_id_t *p_tskid)
 		return KOS_E_PAR;
 #endif
 	
-	if(g_kos_cur_tcb == KOS_NULL) {
-		*p_tskid = KOS_TSK_NONE;
-	} else {
-		*p_tskid = g_kos_cur_tcb->id;
-	}
+	*p_tskid = g_kos_cur_tcb->id;
 	
 	return KOS_E_OK;
 }
