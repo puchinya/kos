@@ -11,6 +11,7 @@
 #ifndef __KOS_LOCAL_H__
 #define __KOS_LOCAL_H__
 
+#include <stddef.h>
 #include "kos.h"
 #include "mcu.h"
 
@@ -143,7 +144,7 @@ static KOS_INLINE int kos_list_empty(kos_list_t *l)
 
 void kos_init(void);
 int kos_find_null(void **a, int len);
-
+void kos_schedule_impl_nolock(void);
 void kos_process_tmo(void);
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb);
 void kos_wait_nolock(kos_tcb_t *tcb);
@@ -155,6 +156,9 @@ void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list);
 /* kos_cyc.c */
 void kos_init_cyc(void);
 void kos_process_cyc(void);
+
+/* usr_init.c */
+void kos_usr_init(void);
 
 /* debug message */
 #define KOS_ENA_DBG_MSG

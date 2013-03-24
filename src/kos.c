@@ -1,12 +1,17 @@
+/*!
+ *	@file	kos.c
+ *	@brief	implemnt scheduler and startup routine etc.
+ *
+ *	Copyright (c) 2013 puchinya All rights reserved.<br>
+ *	@b License BSD 2-Clause license
+ *	@b Create 2013/03/23
+ *	@author	puchinya
+ */
 
 #include "kos_local.h"
 #include <string.h>
 
-extern void KOS_INIT_TSK(void);
-
 #define kos_set_pend_sv()	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk; __DSB();
-
-void kos_schedule_impl_nolock(void);
 
 int kos_find_null(void **a, int len)
 {
@@ -178,21 +183,33 @@ void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list)
 	}
 }
 
+void kos_process_tmo(void)
+{
+	int do_schedule = 0;
+	
+	kos_list_t *l, *end, *next;
+	end = &g_kos_tmo_wait_list;
+	for(l = end->next; l != end; ) {
+		kos_tcb_t *tcb;
+		next = l->next;
+		
+		tcb = (kos_tcb_t *)((uint8_t *)l - offsetof(kos_tcb_t, tmo_list));
+		if(--tcb->st.lefttmo == 0) {
+			/* 待ち解除 */
+			kos_cancel_wait_nolock(tcb, KOS_E_TMOUT);
+			do_schedule = 1;
+		}
+		l = next;
+	}
+	
+	if(do_schedule) {
+		kos_ischedule_nolock();
+	}
+}
+
 /*-----------------------------------------------------------------------------
 	起動処理
 -----------------------------------------------------------------------------*/
-
-static uint32_t s_kos_init_stk[KOS_INIT_STKSIZE/sizeof(uint32_t)];
-
-static const kos_ctsk_t s_ctsk_init =
-{
-	0,
-	0,
-	KOS_INIT_TSK,
-	1,
-	KOS_INIT_STKSIZE,
-	s_kos_init_stk
-};
 
 static void kos_init_vars(void)
 {
@@ -232,14 +249,6 @@ static void kos_init_vars(void)
 #endif
 }
 
-static void kos_init_tsks(void)
-{
-	kos_id_t tskid;
-	
-	tskid = kos_cre_tsk(&s_ctsk_init);
-	kos_act_tsk(tskid);
-}
-
 static void kos_init_irq(void)
 {
 	kos_arch_setup_systick_handler();
@@ -273,7 +282,7 @@ void kos_init(void)
 	
 	kos_init_vars();
 	kos_init_regs();
-	kos_init_tsks();
+	kos_usr_init();
 	kos_init_irq();
 	
 	kos_unlock;
@@ -291,30 +300,6 @@ void kos_start_kernel(void)
 	for(;;) {
 		//__WFI();
 		__NOP();
-	}
-}
-
-void kos_process_tmo(void)
-{
-	int do_schedule = 0;
-	
-	kos_list_t *l, *end, *next;
-	end = &g_kos_tmo_wait_list;
-	for(l = end->next; l != end; ) {
-		kos_tcb_t *tcb;
-		next = l->next;
-		
-		tcb = (kos_tcb_t *)((uint8_t *)l - offsetof(kos_tcb_t, tmo_list));
-		if(--tcb->st.lefttmo == 0) {
-			/* 待ち解除 */
-			kos_cancel_wait_nolock(tcb, KOS_E_TMOUT);
-			do_schedule = 1;
-		}
-		l = next;
-	}
-	
-	if(do_schedule) {
-		kos_ischedule_nolock();
 	}
 }
 

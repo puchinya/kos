@@ -399,11 +399,6 @@
               <FilePath>.\src\startup_mb9bf61x.s</FilePath>
             </File>
             <File>
-              <FileName>main.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\main.c</FilePath>
-            </File>
-            <File>
               <FileName>usbdrv.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\usbdrv.c</FilePath>
@@ -477,6 +472,11 @@
               <FileName>clib_itm_stub.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\clib_itm_stub.c</FilePath>
+            </File>
+            <File>
+              <FileName>usr_init.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\usr_init.c</FilePath>
             </File>
           </Files>
         </Group>

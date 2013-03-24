@@ -1,3 +1,12 @@
+/*!
+ *	@file	kos_arch.c
+ *	@brief	archtecuture part.
+ *
+ *	Copyright (c) 2013 puchinya All rights reserved.<br>
+ *	@b License BSD 2-Clause license
+ *	@b Create 2013/03/23
+ *	@author	puchinya
+ */
 
 #include "kos_arch_if.h"
 

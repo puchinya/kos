@@ -11,12 +11,13 @@
 #ifndef __KOS_H__
 #define __KOS_H__
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include "kos_usr_cfg.h"
 #include "kos_sys_cfg.h"
 #include "kos_arch_cfg.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #if __STDC_VERSION__ >= 199901L
 #	define KOS_INLINE	inline
@@ -316,5 +317,9 @@ kos_bool_t kos_sns_dpn(void);
 kos_er_t kos_def_inh(kos_intno_t intno, const kos_dinh_t *pk_dinh) __attribute__((__nonnull__(2)));
 kos_er_t kos_dis_int(kos_intno_t intno);
 kos_er_t kos_ena_int(kos_intno_t intno);
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif

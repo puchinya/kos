@@ -1,12 +1,12 @@
 
+#include "kos.h"
 #include "mcu.h"
 #include "usbcdc.h"
-#include "kos.h"
 #include "ksh.h"
 #include "led_drv.h"
 #include <string.h>
 
-void init_task(void)
+void kos_usr_init(void)
 {
 	init_led();
 	usbdrv_init();

@@ -13,8 +13,6 @@
 #define KOS_MAX_CYC			16
 #define KOS_MAX_INTNO		46
 #define KOS_SYSMPL_SIZE		(1<<10)			/* OS用メモリプールのサイズ */
-#define KOS_INIT_TSK		init_task		/* 初期化タスクのエントリーポイント名 */
-#define KOS_INIT_STKSIZE	0x200			/* 初期化タスクのスタックサイズ */
-#define KOS_ISR_STKSIZE		0x200
+#define KOS_ISR_STKSIZE		0x200			/* ISR stack size */
 
 #endif
