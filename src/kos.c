@@ -11,8 +11,6 @@
 #include "kos_local.h"
 #include <string.h>
 
-#define kos_set_pend_sv()	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk; __DSB();
-
 int kos_find_null(void **a, int len)
 {
 	int i;
@@ -76,11 +74,7 @@ void kos_schedule_impl_nolock(void)
 	kos_dbgprintf("tsk:%04X RUN\r\n", next_tcb->id);
 	
 	/* コンテキストスイッチ */
-	/* PSPをバックアップ */
-	cur_tcb->sp = (void *)__get_PSP();
-	
-	/* 新しいPSPに変更 */
-	__set_PSP((uint32_t)next_tcb->sp);
+	kos_arch_swi_sp(&cur_tcb->sp, next_tcb->sp);
 }
 
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
@@ -141,7 +135,7 @@ void kos_schedule_nolock(void)
 {
 	if(g_kos_pend_schedule && !g_kos_dsp) {
 		g_kos_pend_schedule = KOS_FALSE;
-		kos_set_pend_sv();
+		kos_arch_pend_sv();
 	}
 }
 
@@ -149,7 +143,7 @@ void kos_ischedule_nolock(void)
 {
 	if(g_kos_pend_schedule && !g_kos_dsp) {
 		g_kos_pend_schedule = KOS_FALSE;
-		kos_set_pend_sv();
+		kos_arch_pend_sv();
 	}
 }
 
@@ -249,11 +243,6 @@ static void kos_init_vars(void)
 #endif
 }
 
-static void kos_init_irq(void)
-{
-	kos_arch_setup_systick_handler();
-}
-
 __asm void kos_init_regs(void)
 {
 	extern g_kos_isr_stk
@@ -283,7 +272,9 @@ void kos_init(void)
 	kos_init_vars();
 	kos_init_regs();
 	kos_usr_init();
-	kos_init_irq();
+#ifdef KOS_ARCH_CFG_SPT_SYSTICK
+	kos_arch_setup_systick_handler();
+#endif
 	
 	kos_unlock;
 }
@@ -297,10 +288,7 @@ void kos_start_kernel(void)
 	kos_ena_dsp();
 	
 	/* idle */
-	for(;;) {
-		//__WFI();
-		__NOP();
-	}
+	kos_arch_idle();
 }
 
 /*-----------------------------------------------------------------------------

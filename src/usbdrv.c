@@ -99,16 +99,16 @@ int usbdrv_init(void)
 		
 		dinh.inhatr = 0;
 		
-		dinh.inthdr = usbdrv_irq;
+		dinh.inthdr = usbdrv_irqf;
 		dinh.exinf = &s_dev[0];
 		kos_def_inh(USB0F_IRQn, &dinh);
-		dinh.inthdr = usbdrv_irqf;
+		dinh.inthdr = usbdrv_irq;
 		dinh.exinf = &s_dev[0];
 		kos_def_inh(USB0F_USB0H_IRQn, &dinh);
-		dinh.inthdr = usbdrv_irq;
+		dinh.inthdr = usbdrv_irqf;
 		dinh.exinf = &s_dev[1];
 		kos_def_inh(USB1F_IRQn, &dinh);
-		dinh.inthdr = usbdrv_irqf;
+		dinh.inthdr = usbdrv_irq;
 		dinh.exinf = &s_dev[1];
 		kos_def_inh(USB1F_USB1H_IRQn, &dinh);
 		

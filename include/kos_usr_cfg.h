@@ -13,6 +13,6 @@
 #define KOS_MAX_CYC			16
 #define KOS_MAX_INTNO		46
 #define KOS_SYSMPL_SIZE		(1<<10)			/* OS用メモリプールのサイズ */
-#define KOS_ISR_STKSIZE		0x200			/* ISR stack size */
+#define KOS_ISR_STKSIZE		0x200			/* ISR(Interrupt Service Routine) stack size */
 
 #endif

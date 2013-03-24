@@ -13,12 +13,12 @@
 
 #include <stddef.h>
 #include "kos.h"
-#include "mcu.h"
+#include "kos_arch.h"
 
-#define kos_lock	__disable_irq()
-#define kos_unlock	__enable_irq()
-#define kos_ilock	__disable_irq()
-#define kos_iunlock	__enable_irq()
+#define kos_lock	kos_arch_loc_cpu()
+#define kos_unlock	kos_arch_unl_cpu()
+#define kos_ilock	kos_arch_loc_cpu()
+#define kos_iunlock	kos_arch_unl_cpu()
 
 #define KOS_ARRAY_LEN(n)	(sizeof(n)/sizeof((n)[0]));
 

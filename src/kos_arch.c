@@ -20,6 +20,12 @@ int main(void)
 	return 0;
 }
 
+__asm void kos_arch_idle(void)
+{
+LOOP
+	B	LOOP
+}
+
 void kos_arch_setup_systick_handler(void)
 {
 	uint32_t period;
@@ -97,16 +103,11 @@ kos_er_t kos_ena_int(kos_intno_t intno)
 /*-----------------------------------------------------------------------------
 	interrupt rutines
 -----------------------------------------------------------------------------*/
-#define DEF_INTR_CODE(funcname, intno) \
-void funcname(void)\
-{\
-	kos_hal_if_exe_inth((kos_intno_t)(intno));\
+void kos_arch_inthdr(void)
+{
+	kos_intno_t intno = (__get_IPSR() & 0x1FF) - 0x10;
+	kos_hal_if_exe_inth(intno);
 }
-
-DEF_INTR_CODE(USB0_Handler, USB0F_IRQn);
-DEF_INTR_CODE(USB0F_Handler, USB0F_USB0H_IRQn);
-DEF_INTR_CODE(USB1_Handler, USB1F_IRQn);
-DEF_INTR_CODE(USB1F_Handler, USB1F_USB1H_IRQn);
 
 void SysTick_Handler(void)
 {
@@ -162,4 +163,20 @@ void BusFault_Handler(void)
 void UsageFault_Handler(void)
 {
 	__NOP();
+}
+
+void USB0_Handler(void) {
+	kos_arch_inthdr();
+}
+
+void USB0F_Handler(void) {
+	kos_arch_inthdr();
+}
+
+void USB1_Handler(void) {
+	kos_arch_inthdr();
+}
+
+void USB1F_Handler(void) {
+	kos_arch_inthdr();
 }
