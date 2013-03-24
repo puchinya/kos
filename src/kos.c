@@ -1,7 +1,6 @@
 
 #include "kos_local.h"
 #include <string.h>
-#include <stdio.h>
 
 extern void KOS_INIT_TSK(void);
 
@@ -108,6 +107,20 @@ void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
 	g_kos_pend_schedule = KOS_TRUE;
 }
 
+void kos_wait_nolock(kos_tcb_t *tcb)
+{
+	kos_dbgprintf("tsk:%04X WAI\r\n", tcb->id);
+	tcb->st.tskstat = KOS_TTS_WAI;
+	g_kos_pend_schedule = KOS_TRUE;
+	
+	/* 無限待ちでなければタイムアウトリストにもつなげる */
+	if(tcb->st.lefttmo != KOS_TMO_FEVR) {
+		kos_list_insert_prev(&g_kos_tmo_wait_list, &tcb->tmo_list);
+	}
+	
+	kos_schedule_nolock();
+}
+
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
 {
 	/* エラーコードを設定 */
@@ -133,24 +146,10 @@ void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
 	}
 }
 
-void kos_schedule_now_nolock(void)
-{
-	if(g_kos_pend_schedule && !g_kos_dsp) {
-		g_kos_pend_schedule = KOS_FALSE;
-		
-		kos_set_pend_sv();
-		
-		/* すぐに切り替えるために一度割り込みを解除する */
-		kos_unlock;
-		kos_lock;
-	}
-}
-
 void kos_schedule_nolock(void)
 {
 	if(g_kos_pend_schedule && !g_kos_dsp) {
 		g_kos_pend_schedule = KOS_FALSE;
-		
 		kos_set_pend_sv();
 	}
 }
@@ -290,22 +289,6 @@ void kos_start_kernel(void)
 		//__WFI();
 		__NOP();
 	}
-}
-
-kos_er_t kos_wait_nolock(kos_tcb_t *tcb)
-{
-	kos_dbgprintf("tsk:%04X WAI\r\n", tcb->id);
-	tcb->st.tskstat = KOS_TTS_WAI;
-	g_kos_pend_schedule = KOS_TRUE;
-	
-	/* 無限待ちでなければタイムアウトリストにもつなげる */
-	if(tcb->st.lefttmo != KOS_TMO_FEVR) {
-		kos_list_insert_prev(&g_kos_tmo_wait_list, &tcb->tmo_list);
-	}
-	
-	kos_schedule_now_nolock();
-	
-	return tcb->rel_wai_er;
 }
 
 void kos_process_tmo(void)

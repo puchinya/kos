@@ -397,6 +397,7 @@ kos_er_t kos_tslp_tsk(kos_tmo_t tmout)
 {
 	kos_tcb_t *tcb;
 	kos_er_t er;
+	kos_er_t *ref_er = KOS_NULL;
 	
 	kos_lock;
 	
@@ -412,11 +413,14 @@ kos_er_t kos_tslp_tsk(kos_tmo_t tmout)
 			tcb->st.lefttmo = tmout;
 			tcb->st.wobjid = 0;
 			tcb->st.tskwait = KOS_TTW_SLP;
-			er = kos_wait_nolock(tcb);
+			kos_wait_nolock(tcb);
+			ref_er = &tcb->rel_wai_er;
 		}
 	}
 	
 	kos_unlock;
+	
+	if(ref_er) er = *ref_er;
 	
 	return er;
 }
@@ -592,7 +596,6 @@ end:
 
 kos_er_t kos_dly_tsk(kos_reltim_t dlytim)
 {
-	kos_er_t er;
 	kos_tcb_t *tcb;
 	
 	/* 待ちに移行させるために1にする */
@@ -607,9 +610,10 @@ kos_er_t kos_dly_tsk(kos_reltim_t dlytim)
 	tcb->st.lefttmo = dlytim;
 	tcb->st.wobjid = 0;
 	tcb->st.tskwait = KOS_TTW_DLY;
-	er = kos_wait_nolock(tcb);
+	
+	kos_wait_nolock(tcb);
 	
 	kos_unlock;
 	
-	return er;
+	return tcb->rel_wai_er;
 }

@@ -275,6 +275,7 @@ kos_er_t kos_twai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 {
 	kos_flg_cb_t *cb;
 	kos_er_t er;
+	kos_er_t *ref_er = KOS_NULL;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(flgid > g_kos_max_flg || flgid == 0)
@@ -337,10 +338,13 @@ kos_er_t kos_twai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 		cb->waiptn = waiptn;
 		cb->relptn = p_flgptn;
 #endif
-		er = kos_wait_nolock(tcb);
+		kos_wait_nolock(tcb);
+		ref_er = &tcb->rel_wai_er;
 	}
 end:
 	kos_unlock;
+	
+	if(ref_er) er = *ref_er;
 	
 	return er;
 }
