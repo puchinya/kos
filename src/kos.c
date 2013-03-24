@@ -20,6 +20,16 @@ int kos_find_null(void **a, int len)
 	return -1;
 }
 
+__asm void kos_arch_swi_ctx(kos_tcb_t *cur_tcb, kos_tcb_t *next_tcb)
+{
+	PUSH	{R4-R11,LR}
+	STR		SP, [R0, #16]
+	LDR		R1, [R1, #16]
+	MOV		SP, R1
+	POP		{R4-R11,LR}
+	BX		LR
+}
+
 void kos_schedule_impl_nolock(void)
 {
 	int i, maxpri;
@@ -74,7 +84,11 @@ void kos_schedule_impl_nolock(void)
 	kos_dbgprintf("tsk:%04X RUN\r\n", next_tcb->id);
 	
 	/* コンテキストスイッチ */
+#ifdef KOS_DISPATCHER_TYPE1
+	kos_arch_swi_ctx(cur_tcb, next_tcb);
+#else
 	kos_arch_swi_sp(&cur_tcb->sp, next_tcb->sp);
+#endif
 }
 
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
@@ -87,11 +101,10 @@ void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
 	g_kos_pend_schedule = KOS_TRUE;
 }
 
-void kos_wait_nolock(kos_tcb_t *tcb)
+kos_er_t kos_wait_nolock(kos_tcb_t *tcb)
 {
 	if(g_kos_dsp) {
-		tcb->rel_wai_er = KOS_E_CTX;
-		return;
+		return KOS_E_CTX;
 	}
 	
 	kos_dbgprintf("tsk:%04X WAI\r\n", tcb->id);
@@ -104,6 +117,8 @@ void kos_wait_nolock(kos_tcb_t *tcb)
 	}
 	
 	kos_schedule_nolock();
+	
+	return tcb->rel_wai_er;
 }
 
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
@@ -135,7 +150,13 @@ void kos_schedule_nolock(void)
 {
 	if(g_kos_pend_schedule && !g_kos_dsp) {
 		g_kos_pend_schedule = KOS_FALSE;
+#ifdef KOS_DISPATCHER_TYPE1
+		kos_schedule_impl_nolock();
+#else
 		kos_arch_pend_sv();
+		kos_unlock;
+		kos_lock;
+#endif
 	}
 }
 

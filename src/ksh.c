@@ -177,7 +177,7 @@ static int ksh_exec_cmd(char *cmd, int cmd_len)
 		if(cmd) {
 			cmd->func(argc, s_argv);
 		} else {
-			ksh_print("invalid command ''");
+			ksh_print("invalid command '");
 			ksh_print(cmd_name);
 			ksh_print("'\r\n");
 		}

@@ -27,6 +27,7 @@ typedef union kos_tcb_wait_info_t kos_tcb_wait_info_t;
 typedef struct kos_tcb_t kos_tcb_t;
 typedef struct kos_sem_cb_t kos_sem_cb_t;
 typedef struct kos_flg_cb_t kos_flg_cb_t;
+typedef struct kos_dtq_cb_t kos_dtq_cb_t;
 typedef struct kos_cyc_cb_t kos_cyc_cb_t;
 
 struct kos_list_t {
@@ -42,8 +43,9 @@ union kos_tcb_wait_info_t {
 		kos_flgptn_t	waiptn;
 		kos_flgptn_t	*relptn;	/* 待ち解除されたときのビットパターン */
 	} flg;
-#undef KOS_TCB_HAS_WAIT_INFO
+#ifndef KOS_TCB_HAS_WAIT_INFO
 #define KOS_TCB_HAS_WAIT_INFO
+#endif
 #endif
 	int	dummy;
 };
@@ -78,6 +80,16 @@ struct kos_flg_cb_t {
 #endif
 };
 
+
+struct kos_dtq_cb_t {
+	kos_cdtq_t			cdtq;
+	kos_uint_t			dtq_rp;
+	kos_uint_t			dtq_wp;
+	kos_uint_t			sdtqcnt;
+	kos_list_t			r_wait_tsk_list;
+	kos_list_t			s_wait_tsk_list;
+};
+
 struct kos_cyc_cb_t {
 	kos_list_t			list;
 	kos_ccyc_t			ccyc;
@@ -91,11 +103,13 @@ extern kos_dinh_t	g_kos_dinh_list[];
 extern kos_tcb_t	*g_kos_tcb[];
 extern kos_sem_cb_t	*g_kos_sem_cb[];
 extern kos_flg_cb_t	*g_kos_flg_cb[];
+extern kos_dtq_cb_t	*g_kos_dtq_cb[];
 extern kos_cyc_cb_t	*g_kos_cyc_cb[];
 
 extern kos_tcb_t	g_kos_tcb_inst[];
 extern kos_sem_cb_t	g_kos_sem_cb_inst[];
 extern kos_flg_cb_t	g_kos_flg_cb_inst[];
+extern kos_dtq_cb_t	g_kos_dtq_cb_inst[];
 extern kos_cyc_cb_t	g_kos_cyc_cb_inst[];
 extern kos_tcb_t	g_kos_idle_tcb_inst;
 
@@ -108,14 +122,11 @@ extern kos_bool_t	g_kos_pend_schedule;
 extern const kos_uint_t g_kos_max_tsk;
 extern const kos_uint_t g_kos_max_sem;
 extern const kos_uint_t g_kos_max_flg;
+extern const kos_uint_t g_kos_max_dtq;
 extern const kos_uint_t g_kos_max_cyc;
 extern const kos_uint_t g_kos_max_pri;
 extern const kos_uint_t g_kos_max_intno;
 extern const kos_uint_t	g_kos_isr_stksz;
-
-void kos_start_kernel(void);
-void kos_arch_setup_systick_handler(void);	/* for kos_arch.c */
-
 
 static KOS_INLINE void kos_list_init(kos_list_t *l)
 {
@@ -142,12 +153,13 @@ static KOS_INLINE int kos_list_empty(kos_list_t *l)
 	return l == l->next;
 }
 
+void kos_start_kernel(void);
 void kos_init(void);
 int kos_find_null(void **a, int len);
 void kos_schedule_impl_nolock(void);
 void kos_process_tmo(void);
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb);
-void kos_wait_nolock(kos_tcb_t *tcb);
+kos_er_t kos_wait_nolock(kos_tcb_t *tcb);
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
 void kos_schedule_nolock(void);
 void kos_ischedule_nolock(void);

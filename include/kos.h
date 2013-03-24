@@ -248,16 +248,20 @@ typedef struct {
 } kos_cdtq_t;
 
 typedef struct {
-	kos_atr_t		stskid;
-	kos_uint_t		rtskid;
-	kos_vp_t		sdtqcnt;
+	kos_id_t		stskid;
+	kos_id_t		rtskid;
+	kos_uint_t		sdtqcnt;
 } kos_rdtq_t;
 
 kos_er_id_t kos_cre_dtq(const kos_cdtq_t *pk_cdtq);
 kos_er_t kos_del_dtq(kos_id_t dtqid);
 kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout);
+static KOS_INLINE kos_er_t kos_snd_dtq(kos_id_t dtqid, kos_vp_int_t data) { return kos_tsnd_dtq(dtqid, data, KOS_TMO_FEVR); }
+static KOS_INLINE kos_er_t kos_psnd_dtq(kos_id_t dtqid, kos_vp_int_t data) { return kos_tsnd_dtq(dtqid, data, KOS_TMO_POL); }
 kos_er_t kos_ipsnd_dtq(kos_id_t dtqid, kos_vp_int_t data);
 kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout);
+static KOS_INLINE kos_er_t kos_rcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data) { return kos_trcv_dtq(dtqid, p_data, KOS_TMO_FEVR); }
+static KOS_INLINE kos_er_t kos_prcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data) { return kos_trcv_dtq(dtqid, p_data, KOS_TMO_POL); }
 kos_er_t kos_ref_dtq(kos_id_t dtqid, kos_rdtq_t *pk_rdtq);
 
 /* mbx */

@@ -478,6 +478,11 @@
               <FileType>1</FileType>
               <FilePath>.\src\usr_init.c</FilePath>
             </File>
+            <File>
+              <FileName>kos_dtq.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kos_dtq.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

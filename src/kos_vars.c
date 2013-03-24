@@ -14,6 +14,7 @@
 kos_tcb_t		*g_kos_tcb[KOS_MAX_TSK];
 kos_sem_cb_t	*g_kos_sem_cb[KOS_MAX_SEM];
 kos_flg_cb_t	*g_kos_flg_cb[KOS_MAX_FLG];
+kos_dtq_cb_t	*g_kos_dtq_cb[KOS_MAX_DTQ];
 kos_cyc_cb_t	*g_kos_cyc_cb[KOS_MAX_CYC];
 kos_dinh_t		g_kos_dinh_list[KOS_MAX_INTNO + 1];
 
@@ -25,6 +26,7 @@ kos_list_t		g_kos_rdy_que[KOS_MAX_PRI];		/* ready queue. */
 kos_tcb_t		g_kos_tcb_inst[KOS_MAX_TSK];
 kos_sem_cb_t	g_kos_sem_cb_inst[KOS_MAX_SEM];
 kos_flg_cb_t	g_kos_flg_cb_inst[KOS_MAX_FLG];
+kos_dtq_cb_t	g_kos_dtq_cb_inst[KOS_MAX_DTQ];
 kos_cyc_cb_t	g_kos_cyc_cb_inst[KOS_MAX_CYC];
 kos_tcb_t		g_kos_idle_tcb_inst;
 
@@ -46,6 +48,7 @@ const kos_uint_t	g_kos_max_tsk = KOS_MAX_TSK;
 const kos_uint_t	g_kos_max_sem = KOS_MAX_SEM;
 const kos_uint_t	g_kos_max_flg = KOS_MAX_FLG;
 const kos_uint_t	g_kos_max_cyc = KOS_MAX_CYC;
+const kos_uint_t	g_kos_max_dtq = KOS_MAX_DTQ;
 const kos_uint_t	g_kos_max_pri = KOS_MAX_PRI;
 const kos_uint_t	g_kos_max_intno = KOS_MAX_INTNO;
 const kos_uint_t	g_kos_isr_stksz = KOS_ISR_STKSIZE;

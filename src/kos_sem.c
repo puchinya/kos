@@ -86,7 +86,6 @@ kos_er_t kos_twai_sem(kos_id_t semid, kos_tmo_t tmout)
 {
 	kos_sem_cb_t *cb;
 	kos_er_t er;
-	kos_er_t *ref_er = KOS_NULL;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(semid > g_kos_max_sem || semid == 0)
@@ -113,14 +112,11 @@ kos_er_t kos_twai_sem(kos_id_t semid, kos_tmo_t tmout)
 			tcb->st.lefttmo = tmout;
 			tcb->st.wobjid = semid;
 			tcb->st.tskwait = KOS_TTW_SEM;
-			kos_wait_nolock(tcb);
-			ref_er = &tcb->rel_wai_er;
+			er = kos_wait_nolock(tcb);
 		}
 	}
 end:
 	kos_unlock;
-	
-	if(ref_er) er = *ref_er;
 	
 	return er;
 }

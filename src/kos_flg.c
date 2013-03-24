@@ -47,6 +47,7 @@ end:
 	
 	return er_id;
 }
+
 kos_er_t kos_del_flg(kos_id_t flgid)
 {
 	kos_flg_cb_t *cb;
@@ -71,7 +72,7 @@ kos_er_t kos_del_flg(kos_id_t flgid)
 	kos_cancel_wait_all_for_delapi_nolock(&cb->wait_tsk_list);
 	
 	/* ID=>CB変換をクリア */
-	g_kos_sem_cb[flgid - 1] = KOS_NULL;
+	g_kos_flg_cb[flgid - 1] = KOS_NULL;
 	
 	/* スケジューラー起動 */
 	kos_schedule_nolock();
@@ -275,7 +276,6 @@ kos_er_t kos_twai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 {
 	kos_flg_cb_t *cb;
 	kos_er_t er;
-	kos_er_t *ref_er = KOS_NULL;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(flgid > g_kos_max_flg || flgid == 0)
@@ -338,13 +338,10 @@ kos_er_t kos_twai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 		cb->waiptn = waiptn;
 		cb->relptn = p_flgptn;
 #endif
-		kos_wait_nolock(tcb);
-		ref_er = &tcb->rel_wai_er;
+		er = kos_wait_nolock(tcb);
 	}
 end:
 	kos_unlock;
-	
-	if(ref_er) er = *ref_er;
 	
 	return er;
 }

@@ -19,8 +19,22 @@ static KOS_INLINE kos_tcb_t *kos_get_tcb(kos_id_t tskid)
 	return g_kos_tcb[tskid-1];
 }
 
+#ifdef KOS_DISPATCHER_TYPE1
+__asm uint32_t __get_R4(void)
+{
+	MOV	R0, R4
+	BX	LR
+}
+#endif
+
+#ifdef KOS_DISPATCHER_TYPE1
+static void kos_tsk_entry(void)
+{
+	kos_tcb_t *tcb = (kos_tcb_t *)__get_R4();
+#else
 static void kos_tsk_entry(kos_tcb_t *tcb)
 {
+#endif
 	for(;;) {
 		((void (*)(kos_vp_int_t))tcb->ctsk.task)(tcb->ctsk.exinf);
 		kos_lock;
@@ -64,6 +78,19 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 #ifdef KOS_CFG_STKCHK
 	memset(tcb->ctsk.stk, 0xCC, tcb->ctsk.stksz);
 #endif
+
+#ifdef KOS_DISPATCHER_TYPE1
+	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 10*4);
+	sp[0] = (kos_uint_t)tcb;							// R4
+	sp[1] = 0;								// R5
+	sp[2] = 0;								// R6
+	sp[3] = 0;								// R7
+	sp[4] = 0;								// R8
+	sp[5] = 0;								// R9
+	sp[6] = 0;								// R10
+	sp[7] = 0;								// R11
+	sp[8] = (kos_uint_t)kos_tsk_entry;								// LR
+#else
 	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 16*4);
 	sp[0] = 0;								// R4
 	sp[1] = 0;								// R5
@@ -81,6 +108,7 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 	sp[13] = 0;								// LR
 	sp[14] = (uint32_t)kos_tsk_entry;		// PC
 	sp[15] = 0x21000000;					// PSR
+#endif
 	
 	er_id = empty_index + 1;
 end:
@@ -397,7 +425,6 @@ kos_er_t kos_tslp_tsk(kos_tmo_t tmout)
 {
 	kos_tcb_t *tcb;
 	kos_er_t er;
-	kos_er_t *ref_er = KOS_NULL;
 	
 	kos_lock;
 	
@@ -413,14 +440,11 @@ kos_er_t kos_tslp_tsk(kos_tmo_t tmout)
 			tcb->st.lefttmo = tmout;
 			tcb->st.wobjid = 0;
 			tcb->st.tskwait = KOS_TTW_SLP;
-			kos_wait_nolock(tcb);
-			ref_er = &tcb->rel_wai_er;
+			er = kos_wait_nolock(tcb);
 		}
 	}
 	
 	kos_unlock;
-	
-	if(ref_er) er = *ref_er;
 	
 	return er;
 }
@@ -597,6 +621,7 @@ end:
 kos_er_t kos_dly_tsk(kos_reltim_t dlytim)
 {
 	kos_tcb_t *tcb;
+	kos_er_t er;
 	
 	/* 待ちに移行させるために1にする */
 	if(dlytim == 0) {
@@ -611,9 +636,9 @@ kos_er_t kos_dly_tsk(kos_reltim_t dlytim)
 	tcb->st.wobjid = 0;
 	tcb->st.tskwait = KOS_TTW_DLY;
 	
-	kos_wait_nolock(tcb);
+	er = kos_wait_nolock(tcb);
 	
 	kos_unlock;
 	
-	return tcb->rel_wai_er;
+	return er;
 }
