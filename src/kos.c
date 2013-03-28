@@ -23,8 +23,8 @@ int kos_find_null(void **a, int len)
 __asm void kos_arch_swi_ctx(kos_tcb_t *cur_tcb, kos_tcb_t *next_tcb)
 {
 	PUSH	{R4-R11,LR}
+	LDR		R1, [R1, #16]	/* ext_tskでRUN=>DMT=>RUNに遷移したときのために先に取得する。 */
 	STR		SP, [R0, #16]
-	LDR		R1, [R1, #16]
 	MOV		SP, R1
 	POP		{R4-R11,LR}
 	BX		LR
@@ -311,104 +311,4 @@ void kos_start_kernel(void)
 	
 	/* idle */
 	kos_arch_idle();
-}
-
-/*-----------------------------------------------------------------------------
-	システム状態管理機能
------------------------------------------------------------------------------*/
-
-/*!
- *	@brief	get execution task ID
- */
-kos_er_t kos_get_tid(kos_id_t *p_tskid)
-{
-#ifdef KOS_CFG_ENA_PAR_CHK
-	if(p_tskid == KOS_NULL)
-		return KOS_E_PAR;
-#endif
-	
-	*p_tskid = g_kos_cur_tcb->id;
-	
-	return KOS_E_OK;
-}
-
-/*!
- *	@brief	get execution task ID
- */
-kos_er_t kos_iget_tid(kos_id_t *p_tskid)
-{
-#ifdef KOS_CFG_ENA_PAR_CHK
-	if(p_tskid == KOS_NULL)
-		return KOS_E_PAR;
-#endif
-	
-	*p_tskid = g_kos_cur_tcb->id;
-	
-	return KOS_E_OK;
-}
-
-kos_er_t kos_dis_dsp(void)
-{
-	g_kos_dsp = KOS_TRUE;
-	
-	return KOS_E_OK;
-}
-
-kos_er_t kos_ena_dsp(void)
-{
-	kos_lock;
-	
-	if(g_kos_dsp) {
-		g_kos_dsp = KOS_FALSE;
-		kos_schedule_nolock();
-	}
-	
-	kos_unlock;
-	
-	return KOS_E_OK;
-}
-
-__asm kos_bool_t kos_sns_ctx(void)
-{
-	MRS	R0, IPSR
-	CMP R0, #0
-	MOVNE R0, #1
-	BX LR
-}
-
-kos_bool_t kos_sns_dsp(void)
-{
-	return g_kos_dsp;
-}
-
-kos_bool_t kos_sns_dpn(void)
-{
-	return g_kos_dsp | kos_sns_ctx() | kos_sns_loc();
-}
-
-/*-----------------------------------------------------------------------------
-	割り込み管理機能
------------------------------------------------------------------------------*/
-kos_er_t kos_def_inh(kos_intno_t intno, const kos_dinh_t *pk_dinh)
-{
-#ifdef KOS_CFG_ENA_PAR_CHK
-	if(intno > KOS_MAX_INTNO) {
-		return KOS_E_PAR;
-	}
-	if(pk_dinh) {
-		if(pk_dinh->inthdr == KOS_NULL) {
-			return KOS_E_PAR;
-		}
-	}
-#endif
-	
-	kos_lock;
-	if(pk_dinh) {
-		g_kos_dinh_list[intno] = *pk_dinh;
-	} else {
-		g_kos_dinh_list[intno].inthdr = KOS_NULL;
-	}
-	kos_unlock;
-	
-	return KOS_E_OK;
 }

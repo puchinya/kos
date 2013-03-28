@@ -483,6 +483,16 @@
               <FileType>1</FileType>
               <FilePath>.\src\kos_dtq.c</FilePath>
             </File>
+            <File>
+              <FileName>kos_sys.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kos_sys.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_inh.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kos_inh.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

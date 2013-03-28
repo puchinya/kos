@@ -20,9 +20,10 @@ extern "C" {
 #endif
 
 #if __STDC_VERSION__ >= 199901L
-#	define KOS_INLINE	inline
+#  define KOS_INLINE	inline
+	ff
 #else
-# define KOS_INLINE __inline
+#  define KOS_INLINE	__inline
 #endif
 
 typedef void 			*kos_vp_t;
@@ -87,6 +88,7 @@ typedef unsigned int	kos_reltim_t;
 #define KOS_TA_ASM		0x01
 #define KOS_TA_TFIFO	0x00
 #define KOS_TA_TPRI		0x01
+#define KOS_TA_ACT		0x02
 
 #define KOS_TMO_POL		0
 #define KOS_TMO_FEVR	-1
@@ -162,9 +164,9 @@ kos_er_t kos_del_tsk(kos_id_t tskid);
 kos_er_t kos_act_tsk(kos_id_t tskid);
 kos_er_t kos_iact_tsk(kos_id_t tskid);
 kos_er_uint_t kos_can_act(kos_id_t tskid);
-kos_er_t kos_sta_tsk(kos_id_t tskid);
-kos_er_t kos_ext_tsk(kos_id_t tskid);
-kos_er_t kos_exd_tsk(kos_id_t tskid);
+kos_er_t kos_sta_tsk(kos_id_t tskid, kos_vp_int_t stacd);
+void kos_ext_tsk(void);
+void kos_exd_tsk(void);
 kos_er_t kos_ter_tsk(kos_id_t tskid);
 kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri);
 kos_er_t kos_get_pri(kos_id_t tskid, kos_pri_t *p_tskpri) __attribute__((__nonnull__(2)));

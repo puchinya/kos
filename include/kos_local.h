@@ -154,6 +154,8 @@ void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
 void kos_schedule_nolock(void);
 void kos_ischedule_nolock(void);
 void kos_schedule_impl_nolock(void);
+#define kos_force_schedule_nolock() do { g_kos_pend_schedule = KOS_TRUE; kos_schedule_nolock(); } while(0);
+#define kos_force_ischedule_nolock() do { g_kos_pend_schedule = KOS_TRUE; kos_ischedule_nolock(); } while(0);
 void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list);
 
 /* kos_cyc.c */

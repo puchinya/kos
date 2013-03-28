@@ -19,6 +19,8 @@ static KOS_INLINE kos_tcb_t *kos_get_tcb(kos_id_t tskid)
 	return g_kos_tcb[tskid-1];
 }
 
+void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx);
+
 #ifdef KOS_DISPATCHER_TYPE1
 __asm uint32_t __get_R4(void)
 {
@@ -35,14 +37,49 @@ static void kos_tsk_entry(void)
 static void kos_tsk_entry(kos_tcb_t *tcb)
 {
 #endif
-	for(;;) {
-		((void (*)(kos_vp_int_t))tcb->ctsk.task)(tcb->ctsk.exinf);
-		kos_lock;
-		tcb->st.tskstat = KOS_TTS_DMT;
-		g_kos_pend_schedule = KOS_TRUE;
-		kos_dbgprintf("tsk:%04X DMT\r\n", tcb->id);
+	((void (*)(kos_vp_int_t))tcb->ctsk.task)(tcb->ctsk.exinf);
+	kos_ext_tsk();
+}
+
+void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx)
+{	
+	kos_uint_t *sp;
+#ifdef KOS_DISPATCHER_TYPE1
+	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 10*4);
+	sp[0] = (kos_uint_t)tcb;							// R4
+	sp[1] = 0;								// R5
+	sp[2] = 0;								// R6
+	sp[3] = 0;								// R7
+	sp[4] = 0;								// R8
+	sp[5] = 0;								// R9
+	sp[6] = 0;								// R10
+	sp[7] = 0;								// R11
+	sp[8] = (kos_uint_t)kos_tsk_entry;		// LR
+#else
+	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 16*4);
+	sp[0] = 0;								// R4
+	sp[1] = 0;								// R5
+	sp[2] = 0;								// R6
+	sp[3] = 0;								// R7
+	sp[4] = 0;								// R8
+	sp[5] = 0;								// R9
+	sp[6] = 0;								// R10
+	sp[7] = 0;								// R11
+	sp[8] = (uint32_t)tcb;					// R0
+	sp[9] = 0;								// R1
+	sp[10] = 0;								// R2
+	sp[11] = 0;								// R3
+	sp[12] = 0;								// R12
+	sp[13] = 0;								// LR
+	sp[14] = (uint32_t)kos_tsk_entry;		// PC
+	sp[15] = 0x21000000;					// PSR
+#endif
+
+	kos_rdy_tsk_nolock(tcb);
+	if(is_ctx) {
+		kos_ischedule_nolock();
+	} else {
 		kos_schedule_nolock();
-		kos_unlock;
 	}
 }
 
@@ -74,41 +111,16 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 	tcb->st.actcnt		= 0;
 	tcb->st.wupcnt		= 0;
 	tcb->st.suscnt		= 0;
+	tcb->sp				= KOS_NULL;
+	
 	tcb->id = empty_index + 1;
 #ifdef KOS_CFG_STKCHK
 	memset(tcb->ctsk.stk, 0xCC, tcb->ctsk.stksz);
 #endif
 
-#ifdef KOS_DISPATCHER_TYPE1
-	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 10*4);
-	sp[0] = (kos_uint_t)tcb;							// R4
-	sp[1] = 0;								// R5
-	sp[2] = 0;								// R6
-	sp[3] = 0;								// R7
-	sp[4] = 0;								// R8
-	sp[5] = 0;								// R9
-	sp[6] = 0;								// R10
-	sp[7] = 0;								// R11
-	sp[8] = (kos_uint_t)kos_tsk_entry;								// LR
-#else
-	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 16*4);
-	sp[0] = 0;								// R4
-	sp[1] = 0;								// R5
-	sp[2] = 0;								// R6
-	sp[3] = 0;								// R7
-	sp[4] = 0;								// R8
-	sp[5] = 0;								// R9
-	sp[6] = 0;								// R10
-	sp[7] = 0;								// R11
-	sp[8] = (uint32_t)tcb;					// R0
-	sp[9] = 0;								// R1
-	sp[10] = 0;								// R2
-	sp[11] = 0;								// R3
-	sp[12] = 0;								// R12
-	sp[13] = 0;								// LR
-	sp[14] = (uint32_t)kos_tsk_entry;		// PC
-	sp[15] = 0x21000000;					// PSR
-#endif
+	if(ctsk->tskatr & KOS_TA_ACT) {
+		kos_local_act_tsk_impl_nolock(tcb, KOS_FALSE);
+	}
 	
 	er_id = empty_index + 1;
 end:
@@ -183,8 +195,43 @@ kos_er_t kos_act_tsk(kos_id_t tskid)
 	}
 	
 	if(tcb->st.tskstat == KOS_TTS_DMT) {
-		kos_rdy_tsk_nolock(tcb);
-		kos_schedule_nolock();
+		kos_local_act_tsk_impl_nolock(tcb, KOS_FALSE);
+	} else {
+		if(tcb->st.actcnt >= KOS_MAX_ACT_CNT) {
+			er = KOS_E_QOVR;
+		} else {
+			tcb->st.actcnt++;
+		}
+	}
+	
+end:
+	kos_unlock;
+	
+	return er;
+}
+
+kos_er_t kos_iact_tsk(kos_id_t tskid)
+{
+	kos_er_t er;
+	kos_tcb_t *tcb;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskid == KOS_TSK_SELF || tskid > g_kos_max_tsk)
+		return KOS_E_ID;
+#endif
+	
+	er = KOS_E_OK;
+	
+	kos_ilock;
+	
+	tcb = kos_get_tcb(tskid);
+	if(!tcb) {
+		er = KOS_E_NOEXS;
+		goto end;
+	}
+	
+	if(tcb->st.tskstat == KOS_TTS_DMT) {
+		kos_local_act_tsk_impl_nolock(tcb, KOS_TRUE);
 	} else {
 		if(tcb->st.actcnt >= KOS_MAX_ACT_CNT) {
 			er = KOS_E_QOVR;
@@ -230,6 +277,78 @@ end:
 	kos_unlock;
 	
 	return er;
+}
+
+kos_er_t kos_sta_tsk(kos_id_t tskid, kos_vp_int_t stacd)
+{
+	kos_er_t er;
+	kos_tcb_t *tcb;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskid > g_kos_max_tsk)
+		return KOS_E_ID;
+	if(tskid == KOS_TSK_SELF)
+		return KOS_E_OBJ;
+#endif
+	
+	er = KOS_E_OK;
+	
+	kos_lock;
+	
+	tcb = kos_get_tcb(tskid);
+	if(!tcb) {
+		er = KOS_E_NOEXS;
+		goto end;
+	}
+	if(tcb == g_kos_cur_tcb) {
+		er = KOS_E_OBJ;
+		goto end;
+	}
+	
+	if(tcb->st.tskstat != KOS_TTS_DMT) {
+		er = KOS_E_OBJ;
+		goto end;
+	}
+	
+	tcb->ctsk.exinf = stacd;
+	
+	kos_local_act_tsk_impl_nolock(tcb, KOS_FALSE);
+end:
+	kos_unlock;
+	
+	return er;
+}
+
+void kos_ext_tsk(void)
+{
+	kos_tcb_t *tcb;
+	kos_uint_t actcnt;
+	
+	kos_lock;
+	
+	tcb = g_kos_cur_tcb;
+	
+	tcb->st.tskstat = KOS_TTS_DMT;
+	kos_dbgprintf("tsk:%04X DMT\r\n", tcb->id);
+	
+	actcnt = tcb->st.actcnt;
+	actcnt--;
+	tcb->st.actcnt = actcnt;
+	if(actcnt > 0) {
+		kos_local_act_tsk_impl_nolock(tcb, KOS_FALSE);
+	} else {
+		kos_force_schedule_nolock();
+	}
+end:
+	kos_unlock;
+}
+
+void kos_exd_tsk(void)
+{
+}
+
+kos_er_t kos_ter_tsk(kos_id_t tskid)
+{
 }
 
 kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
@@ -304,8 +423,7 @@ kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
 			
 			/* 現在実行中のタスク(自タスク)より優先度が高くなっていればスケジューリング */
 			if(g_kos_cur_tcb->st.tskpri > new_tskpri) {
-				g_kos_pend_schedule = KOS_TRUE;
-				kos_schedule_nolock();
+				kos_force_schedule_nolock();
 			}
 		}
 	}
@@ -676,8 +794,7 @@ kos_er_t kos_sus_tsk(kos_id_t tskid)
 		kos_list_remove((kos_list_t *)tcb);
 	} else if(tskstat == KOS_TTS_RUN) {
 		/* 実行状態ならスケジューリング */
-		g_kos_pend_schedule = KOS_TRUE;
-		kos_schedule_nolock();
+		kos_force_schedule_nolock();
 	}
 end:
 	kos_unlock;
