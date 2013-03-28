@@ -232,6 +232,7 @@ static void kos_init_vars(void)
 	
 	g_kos_dsp = KOS_TRUE;
 	g_kos_pend_schedule = KOS_FALSE;
+	g_kos_systim = 0;
 	
 	kos_list_init(&g_kos_tmo_wait_list);
 	

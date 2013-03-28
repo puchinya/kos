@@ -1,0 +1,69 @@
+;
+; USBCOM setup INF file
+;
+[Version]
+Signature="$Windows NT$"
+Class=Ports
+ClassGuid={4D36E978-E325-11CE-BFC1-08002BE10318}
+Provider=%IAR%
+DriverVer=01/05/2011,1.0.8
+
+[SourceDisksFiles]
+
+[SourceDisksNames]
+
+[Manufacturer]
+%IAR%=IAR_Systems
+
+[IAR_Systems]
+%IAR_CDC&PID_4912%=IarVirCOM,USB\VID_26FF&PID_4912
+
+[PreCopySection]
+HKR,,NoSetupUI,,1
+
+[DestinationDirs]
+DefaultDestDir=10,System32\Drivers
+UUSBD_COPYFILES = 10,System32\Drivers
+
+;**************************************************
+;*   Windows NT family                            *
+;**************************************************
+[IarVirCOM.NT]
+include=mdmcpq.inf
+CopyFiles=FakeModemCopyFileSection
+AddReg=IarVirCOM.NT.AddReg
+
+[IarVirCOM.NT.AddReg]
+HKR,,DevLoader,,*ntkern
+HKR,,NTMPDriver,,usbser.sys
+HKR,,EnumPropPages32,,"MsPorts.dll,SerialPortPropPageProvider"
+
+[IarVirCOM.NTx86]
+include=mdmcpq.inf
+CopyFiles=FakeModemCopyFileSection
+AddReg=IarVirCOM.NT.AddReg
+
+[IarVirCOM.NTx86.Services]
+AddService=usbser, 0x00000002,IarVirCOMService_Inst
+
+[IarVirCOM.NTamd64]
+include=mdmcpq.inf
+CopyFiles=FakeModemCopyFileSection
+AddReg=IarVirCOM.NT.AddReg
+
+[IarVirCOM.NTamd64.Services]
+AddService=usbser, 0x00000002,IarVirCOMService_Inst
+
+
+[IarVirCOMService_Inst]
+DisplayName=%IarVirCOM.SvcDesc%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%12%\usbser.sys
+LoadOrderGroup=Base
+
+[Strings]
+IAR="KUMA"
+IAR_CDC&PID_4912="KUMA Virtual COM port, FM3"
+IarVirCOM.SvcDesc="KUMA Virtual COM port"

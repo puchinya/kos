@@ -519,7 +519,10 @@ static void usbdrv_ctrl_setup(usbdrv_dev_t *dev)
 	
 		/* デバイスリクエストを処理する */
 		usbdrv_ctrl_process_device_request(dev, &device_request);
-	
+		if(dev->ep0.stat == USBDRV_EP_STAT_SETUP) {
+			dev->ep0.stat = USBDRV_EP_STAT_HSIN;
+			dev->regs->EP0IS_f.DRQIIE = 1;
+		}
 	} else {
 		usbdrv_ep0_stall(dev);
 	}
@@ -770,6 +773,7 @@ void usbdrv_ep0_begin_write(usbdrv_dev_t *dev,
 {
 	dev->ep0.tx_buf.user_buf.p = (uint8_t *)buf;
 	dev->ep0.tx_buf.user_buf.size = size;
+	dev->ep0.stat = USBDRV_EP_STAT_DATAIN;
 	dev->regs->EP0IS_f.DRQIIE = 1;
 }
 
@@ -778,6 +782,7 @@ void usbdrv_ep0_begin_read(usbdrv_dev_t *dev,
 {
 	dev->ep0.rx_buf.user_buf.p = (uint8_t *)buf;
 	dev->ep0.rx_buf.user_buf.size = size;
+	dev->ep0.stat = USBDRV_EP_STAT_DATAOUT;
 	dev->regs->EP0OS_f.DRQOIE = 1;
 }
 

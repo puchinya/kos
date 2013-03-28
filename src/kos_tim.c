@@ -13,7 +13,6 @@
 /*-----------------------------------------------------------------------------
 	時間管理機能/システム時刻管理
 -----------------------------------------------------------------------------*/
-static kos_systim_t s_systim;				/* システム時刻 */
 
 kos_er_t kos_set_tim(kos_systim_t *p_systim)
 {
@@ -23,7 +22,7 @@ kos_er_t kos_set_tim(kos_systim_t *p_systim)
 #endif
 	
 	kos_lock;
-	s_systim = *p_systim;
+	g_kos_systim = *p_systim;
 	kos_unlock;
 	
 	return KOS_E_OK;
@@ -37,7 +36,7 @@ kos_er_t kos_get_tim(kos_systim_t *p_systim)
 #endif
 	
 	kos_lock;
-	*p_systim = s_systim;
+	*p_systim = g_kos_systim;
 	kos_unlock;
 	
 	return KOS_E_OK;
@@ -53,7 +52,7 @@ kos_er_t kos_isig_tim(void)
 	kos_ilock;
 	
 	/* システム時刻をインクリメント */
-	s_systim++;
+	g_kos_systim++;
 	
 	/* タイムアウト待ちのタスクを処理 */
 	kos_process_tmo();

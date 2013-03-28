@@ -140,14 +140,12 @@ static const uint8_t usbcdc_string_desc0[] =
 
 static const uint8_t usbcdc_string_desc1[] =
 {
-	14,
+	10,
 	0x03,
-	'C', 0x00,
-	'Q', 0x00,
-	' ', 0x00,
-	'P', 0x00,
-	'u', 0x00,
-	'b', 0x00
+	'K', 0x00,
+	'U', 0x00,
+	'M', 0x00,
+	'A', 0x00
 };
 
 static const uint8_t usbcdc_string_desc2[] =
@@ -316,17 +314,13 @@ static void usbcdc_process_class_request(usbdrv_dev_t *dev,
 	{
 	case USBCDC_SET_LINE_CODING:
 		usbdrv_ep0_begin_read(dev, cdc->line_code, 7);
-		dev->ep0.stat = USBDRV_EP_STAT_DATAOUT;
 		break;
 	case USBCDC_GET_LINE_CODING:
 		usbdrv_ep0_begin_write(dev, cdc->line_code, usbcdc_min(7, wLength));
-		dev->ep0.stat = USBDRV_EP_STAT_DATAIN;
 		break;
 	case USBCDC_CONTROL_LINE_STATE:
 		cdc->ctrl_line = wLength;
 	default:
-		dev->ep0.stat = USBDRV_EP_STAT_HSIN;
-		dev->regs->EP0IS_f.DRQIIE = 1;
 		break;
 	}
 }
@@ -339,11 +333,8 @@ static int usbcdc_process_device_request(usbdrv_dev_t *dev,
 		switch(device_request->bRequest) {
 		case USB_REQUEST_CODE_GET_DESCRIPTOR:
 			usbcdc_process_device_request_get_descriptor(dev, device_request);
-			dev->ep0.stat = USBDRV_EP_STAT_DATAIN;
 			break;
 		default:
-			dev->ep0.stat = USBDRV_EP_STAT_HSIN;
-			dev->regs->EP0IS_f.DRQIIE = 1;
 			break;
 		}
 		break;

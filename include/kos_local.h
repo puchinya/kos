@@ -118,6 +118,7 @@ extern kos_uint_t	g_kos_isr_stk[];
 extern kos_list_t	g_kos_tmo_wait_list;
 extern kos_bool_t	g_kos_dsp;
 extern kos_bool_t	g_kos_pend_schedule;
+extern kos_systim_t g_kos_systim;
 
 extern const kos_uint_t g_kos_max_tsk;
 extern const kos_uint_t g_kos_max_sem;
@@ -153,16 +154,19 @@ static KOS_INLINE int kos_list_empty(kos_list_t *l)
 	return l == l->next;
 }
 
-void kos_start_kernel(void);
 void kos_init(void);
+void kos_start_kernel(void);
+
 int kos_find_null(void **a, int len);
-void kos_schedule_impl_nolock(void);
+
 void kos_process_tmo(void);
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb);
 kos_er_t kos_wait_nolock(kos_tcb_t *tcb);
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
+
 void kos_schedule_nolock(void);
 void kos_ischedule_nolock(void);
+void kos_schedule_impl_nolock(void);
 void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list);
 
 /* kos_cyc.c */

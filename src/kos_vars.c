@@ -36,6 +36,7 @@ kos_tcb_t		*g_kos_cur_tcb;					/* executing task control block. */
 kos_bool_t		g_kos_dsp;						/* disabling dispatch */
 kos_bool_t		g_kos_pend_schedule;			/* pending scheduler */
 kos_list_t		g_kos_tmo_wait_list;			/* wating timeout. */
+kos_systim_t	g_kos_systim;
 
 #ifdef __ARMCC_VERSION
 #pragma arm section zidata

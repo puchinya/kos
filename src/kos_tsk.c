@@ -618,6 +618,186 @@ end:
 	return er;
 }
 
+kos_er_t kos_sus_tsk(kos_id_t tskid)
+{
+	kos_er_t	er;
+	kos_tcb_t	*tcb;
+	kos_stat_t	tskstat;
+	kos_uint_t	suscnt;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskid > g_kos_max_tsk)
+		return KOS_E_ID;
+#endif
+	
+	er = KOS_E_OK;
+	
+	kos_lock;
+	
+	if(tskid == KOS_TSK_SELF) {
+		/* 自タスク指定のときディスパッチ禁止状態ならエラー */
+		if(g_kos_dsp) {
+			er = KOS_E_CTX;
+			goto end;
+		}
+		tcb = g_kos_cur_tcb;
+	} else {
+		tcb = kos_get_tcb(tskid);
+		if(tcb == KOS_NULL) {
+			er = KOS_E_NOEXS;
+			goto end;
+		}
+	}
+	
+	tskstat = tcb->st.tskstat;
+	
+	/* すでに休止状態ならエラーとする */
+	if(tskstat == KOS_TTS_DMT) {
+		return KOS_E_OBJ;
+	}
+	
+	/* タスク状態変更 */
+	if(tskstat & KOS_TTS_WAI) {
+		tcb->st.tskstat = KOS_TTS_WAS;
+	} else {
+		tcb->st.tskstat = KOS_TTS_SUS;
+	}
+	
+	/* キューイング数を加算 */
+	suscnt = tcb->st.suscnt;
+	if(suscnt >= KOS_MAX_SUS_CNT) {
+		er = KOS_E_QOVR;
+		goto end;
+	}
+	tcb->st.suscnt = suscnt + 1;
+	
+	if(tskstat == KOS_TTS_RDY) {
+		/* 実行可能状態ならRDYキューから削除 */
+		kos_list_remove((kos_list_t *)tcb);
+	} else if(tskstat == KOS_TTS_RUN) {
+		/* 実行状態ならスケジューリング */
+		g_kos_pend_schedule = KOS_TRUE;
+		kos_schedule_nolock();
+	}
+end:
+	kos_unlock;
+	
+	return er;
+}
+
+
+kos_er_t kos_rsm_tsk(kos_id_t tskid)
+{
+	kos_er_t	er;
+	kos_tcb_t	*tcb;
+	kos_stat_t	tskstat;
+	kos_uint_t	suscnt;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskid > g_kos_max_tsk)
+		return KOS_E_ID;
+#endif
+	/* 自タスク指定はエラー */
+	if(tskid == KOS_TSK_SELF) {
+		return KOS_E_OBJ;
+	}
+	
+	er = KOS_E_OK;
+	
+	kos_lock;
+	
+	tcb = kos_get_tcb(tskid);
+	if(tcb == KOS_NULL) {
+		er = KOS_E_NOEXS;
+		goto end;
+	}
+	/* 自タスク指定はエラー */
+	if(tcb == g_kos_cur_tcb) {
+		er = KOS_E_OBJ;
+		goto end;
+	}
+	
+	/* キューイング数を減算 */
+	suscnt = tcb->st.suscnt;
+	if(suscnt == 0) {
+		/* 0なら強制待ち状態ではないのでエラー */
+		er = KOS_E_OBJ;
+		goto end;
+	}
+	suscnt--;
+	tcb->st.suscnt = suscnt;
+	
+	if(suscnt == 0) {
+		tskstat = tcb->st.tskstat;
+		if(tskstat == KOS_TTS_WAS) {
+			tcb->st.tskstat = KOS_TTS_WAI;
+		} else {
+			kos_rdy_tsk_nolock(tcb);
+			kos_schedule_nolock();
+		}
+	}
+	
+end:
+	kos_unlock;
+	
+	return er;
+}
+
+kos_er_t kos_frsm_tsk(kos_id_t tskid)
+{
+	kos_er_t	er;
+	kos_tcb_t	*tcb;
+	kos_stat_t	tskstat;
+	kos_uint_t	suscnt;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskid > g_kos_max_tsk)
+		return KOS_E_ID;
+#endif
+	/* 自タスク指定はエラー */
+	if(tskid == KOS_TSK_SELF) {
+		return KOS_E_OBJ;
+	}
+	
+	er = KOS_E_OK;
+	
+	kos_lock;
+	
+	tcb = kos_get_tcb(tskid);
+	if(tcb == KOS_NULL) {
+		er = KOS_E_NOEXS;
+		goto end;
+	}
+	/* 自タスク指定はエラー */
+	if(tcb == g_kos_cur_tcb) {
+		er = KOS_E_OBJ;
+		goto end;
+	}
+	
+	/* キューイング数を減算 */
+	suscnt = tcb->st.suscnt;
+	if(suscnt == 0) {
+		/* 0なら強制待ち状態ではないのでエラー */
+		er = KOS_E_OBJ;
+		goto end;
+	}
+	
+	tcb->st.suscnt = 0;
+	
+	tskstat = tcb->st.tskstat;
+	if(tskstat == KOS_TTS_WAS) {
+		tcb->st.tskstat = KOS_TTS_WAI;
+	} else {
+		kos_rdy_tsk_nolock(tcb);
+		kos_schedule_nolock();
+	}
+	
+end:
+	kos_unlock;
+	
+	return er;
+}
+
 kos_er_t kos_dly_tsk(kos_reltim_t dlytim)
 {
 	kos_tcb_t *tcb;

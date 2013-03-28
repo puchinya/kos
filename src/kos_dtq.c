@@ -150,7 +150,64 @@ end:
 
 kos_er_t kos_ipsnd_dtq(kos_id_t dtqid, kos_vp_int_t data)
 {
-	return KOS_E_OK;
+	kos_dtq_cb_t *cb;
+	kos_er_t er;
+	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(dtqid > g_kos_max_dtq || dtqid == 0)
+		return KOS_E_ID;
+#endif
+	
+	er = KOS_E_OK;
+	
+	kos_ilock;
+	
+	cb = kos_get_dtq_cb(dtqid);
+	if(cb == KOS_NULL) {
+		er = KOS_E_NOEXS;
+		goto end;
+	}
+	
+	if(cb->sdtqcnt == cb->cdtq.dtqcnt) {
+		/* 空きがない場合 */
+		er = KOS_E_TMOUT;
+		goto end;
+	}
+	
+	/* キューにデータを追加 */
+	{
+		kos_uint_t wp;
+		
+		wp = cb->dtq_wp;
+		
+		((kos_vp_int_t *)cb->cdtq.dtq)[wp] = data;
+		
+		wp++;
+		if(wp >= cb->cdtq.dtqcnt) wp = 0;
+		cb->dtq_wp = wp;
+		cb->sdtqcnt++;
+		
+		if(!kos_list_empty(&cb->r_wait_tsk_list)) {
+			kos_tcb_t *tcb = (kos_tcb_t *)cb->r_wait_tsk_list.next;
+			
+			kos_cancel_wait_nolock(tcb, KOS_E_OK);
+			kos_ischedule_nolock();
+		}
+	}
+end:
+	kos_iunlock;
+	
+	return er;
+}
+
+kos_er_t kos_fsnd_dtq(kos_id_t dtqid, kos_vp_int_t data)
+{
+	return KOS_E_NOSPT;
+}
+
+kos_er_t kos_ifsnd_dtq(kos_id_t dtqid, kos_vp_int_t data)
+{
+	return KOS_E_NOSPT;
 }
 
 kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout)

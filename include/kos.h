@@ -177,6 +177,9 @@ kos_er_t kos_wup_tsk(kos_id_t tskid);
 kos_er_t kos_iwup_tsk(kos_id_t tskid);
 kos_er_t kos_rel_tsk(kos_id_t tskid);
 kos_er_t kos_irel_tsk(kos_id_t tskid);
+kos_er_t kos_sus_tsk(kos_id_t tskid);
+kos_er_t kos_rsm_tsk(kos_id_t tskid);
+kos_er_t kos_frsm_tsk(kos_id_t tskid);
 kos_er_t kos_dly_tsk(kos_reltim_t dlytim);
 
 /* 同期・通信機能/セマフォ */
@@ -259,6 +262,8 @@ kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout);
 static KOS_INLINE kos_er_t kos_snd_dtq(kos_id_t dtqid, kos_vp_int_t data) { return kos_tsnd_dtq(dtqid, data, KOS_TMO_FEVR); }
 static KOS_INLINE kos_er_t kos_psnd_dtq(kos_id_t dtqid, kos_vp_int_t data) { return kos_tsnd_dtq(dtqid, data, KOS_TMO_POL); }
 kos_er_t kos_ipsnd_dtq(kos_id_t dtqid, kos_vp_int_t data);
+kos_er_t kos_fsnd_dtq(kos_id_t dtqid, kos_vp_int_t data);
+kos_er_t kos_ifsnd_dtq(kos_id_t dtqid, kos_vp_int_t data);
 kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout);
 static KOS_INLINE kos_er_t kos_rcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data) { return kos_trcv_dtq(dtqid, p_data, KOS_TMO_FEVR); }
 static KOS_INLINE kos_er_t kos_prcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data) { return kos_trcv_dtq(dtqid, p_data, KOS_TMO_POL); }
