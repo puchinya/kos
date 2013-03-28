@@ -108,24 +108,31 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 #ifdef KOS_CFG_SPT_FLG_WMUL
 		kos_list_t *wait_tsk_list = &cb->wait_tsk_list;
 		kos_list_t *l;
-		int do_schedule = 0;
+		kos_bool_t do_schedule = KOS_FALSE;
 		
-		for(l = wait_tsk_list->next; l != wait_tsk_list; l = l->next)
-		{
-			kos_tcb_t *tcb = (kos_tcb_t *)l;
+		for(l = wait_tsk_list->next; l != wait_tsk_list; l = l->next) {
+			kos_tcb_t *tcb;
+			kos_flg_wait_exinf *wait_exinf;
 			
-			if(tcb->wait_info.flg.wfmode == KOS_TWF_ANDW) {
-				if((tcb->wait_info.flg.waiptn & cb->flgptn) != tcb->wait_info.flg.waiptn)
+			tcb = (kos_tcb_t *)l;
+			wait_exinf = (kos_flg_wait_exinf *)tcb->wait_exinf;
+			
+			if(wait_exinf->wfmode == KOS_TWF_ANDW) {
+				if((wait_exinf->waiptn & cb->flgptn) != wait_exinf->waiptn)
 					continue;
 			} else {
-				if(!(tcb->wait_info.flg.waiptn & cb->flgptn))
+				if(!(wait_exinf->waiptn & cb->flgptn))
 					continue;
 			}
-			do_schedule = 1;
-			*tcb->wait_info.flg.relptn = cb->flgptn;
+			
+			do_schedule = KOS_TRUE;
+			
+			wait_exinf->relptn = cb->flgptn;
+			
 			kos_cancel_wait_nolock(tcb, KOS_E_OK);
+			
 			if(cb->cflg->flgatr & KOS_TA_CLR) {
-				/* タスクをひとつ解除した時点でクリアする(仕様) */
+				/* TA_CLRが指定されているなら、タスクをひとつ解除した時点でクリアする(仕様) */
 				cb->flgptn = 0;
 				break;
 			}
@@ -189,24 +196,31 @@ kos_er_t kos_iset_flg(kos_id_t flgid, kos_flgptn_t setptn)
 #ifdef KOS_CFG_SPT_FLG_WMUL
 		kos_list_t *wait_tsk_list = &cb->wait_tsk_list;
 		kos_list_t *l;
-		int do_schedule = 0;
+		kos_bool_t do_schedule = KOS_FALSE;
 		
-		for(l = wait_tsk_list->next; l != wait_tsk_list; l = l->next)
-		{
-			kos_tcb_t *tcb = (kos_tcb_t *)l;
+		for(l = wait_tsk_list->next; l != wait_tsk_list; l = l->next) {
+			kos_tcb_t *tcb;
+			kos_flg_wait_exinf *wait_exinf;
 			
-			if(tcb->wait_info.flg.wfmode == KOS_TWF_ANDW) {
-				if((tcb->wait_info.flg.waiptn & cb->flgptn) != tcb->wait_info.flg.waiptn)
+			tcb = (kos_tcb_t *)l;
+			wait_exinf = (kos_flg_wait_exinf *)tcb->wait_exinf;
+			
+			if(wait_exinf->wfmode == KOS_TWF_ANDW) {
+				if((wait_exinf->waiptn & cb->flgptn) != wait_exinf->waiptn)
 					continue;
 			} else {
-				if(!(tcb->wait_info.flg.waiptn & cb->flgptn))
+				if(!(wait_exinf->waiptn & cb->flgptn))
 					continue;
 			}
-			do_schedule = 1;
-			*tcb->wait_info.flg.relptn = cb->flgptn;
+			
+			do_schedule = KOS_TRUE;
+			
+			wait_exinf->relptn = cb->flgptn;
+			
 			kos_cancel_wait_nolock(tcb, KOS_E_OK);
+			
 			if(cb->cflg->flgatr & KOS_TA_CLR) {
-				/* タスクをひとつ解除した時点でクリアする(仕様) */
+				/* TA_CLRが指定されているなら、タスクをひとつ解除した時点でクリアする(仕様) */
 				cb->flgptn = 0;
 				break;
 			}
@@ -324,15 +338,22 @@ kos_er_t kos_twai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 	if(tmout == KOS_TMO_POL) {
 		er = KOS_E_TMOUT;
 	} else {
-		kos_tcb_t *tcb = g_kos_cur_tcb;
+		kos_tcb_t *tcb;
+
+		tcb = g_kos_cur_tcb;
 		tcb->st.lefttmo = tmout;
 		tcb->st.wobjid = flgid;
 		tcb->st.tskwait = KOS_TTW_FLG;
 		kos_list_insert_prev(&cb->wait_tsk_list, &tcb->wait_list);
+		
 #ifdef KOS_CFG_SPT_FLG_WMUL
-		tcb->wait_info.flg.wfmode = wfmode;
-		tcb->wait_info.flg.waiptn = waiptn;
-		tcb->wait_info.flg.relptn = p_flgptn;
+		{
+			kos_flg_wait_exinf_t wait_exinf;
+			wait_exinf.wfmod = wfmode;
+			wait_exinf.waiptn = waiptn;
+			wait_exinf.relptn = p_flgptn;
+			tcb->wait_exinf = (kos_vp_t)&wait_exinf;
+		}
 #else
 		cb->wfmode = wfmode;
 		cb->waiptn = waiptn;

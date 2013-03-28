@@ -34,32 +34,20 @@ struct kos_list_t {
 	kos_list_t	*next, *prev;
 };
 
-#undef KOS_TCB_HAS_WAIT_INFO
-
-union kos_tcb_wait_info_t {
-#if defined(KOS_CFG_SPT_FLG) && defined(KOS_CFG_SPT_FLG_WMUL)
-	struct {
-		kos_mode_t		wfmode;
-		kos_flgptn_t	waiptn;
-		kos_flgptn_t	*relptn;	/* 待ち解除されたときのビットパターン */
-	} flg;
-#ifndef KOS_TCB_HAS_WAIT_INFO
-#define KOS_TCB_HAS_WAIT_INFO
-#endif
-#endif
-	int	dummy;
-};
+typedef struct {
+	kos_mode_t		wfmode;
+	kos_flgptn_t	waiptn;
+	kos_flgptn_t	*relptn;	/* 待ち解除されたときのビットパターン */
+} kos_flg_wait_exinf_t;
 
 struct kos_tcb_t {
-	kos_list_t			wait_list;	/* 待ち要因に対してつなぐリスト */
+	kos_list_t			wait_list;	/* RDYキューまたは待機リストに対してつなぐリスト */
 	kos_list_t			tmo_list;	/* タイムアウトのためにつなぐリスト */
 	void				*sp;		/* current stack pointer */
 	kos_id_t			id;			/* task id */
 	kos_ctsk_t			ctsk;		/* task create parameters */
 	kos_rtsk_t			st;
-#ifdef KOS_TCB_HAS_WAIT_INFO
-	kos_tcb_wait_info_t	wait_info;
-#endif
+	kos_vp_t			wait_exinf;	/* 待ち状態のときに格納する拡張情報(同期・通信API実装で使用) */
 	kos_er_t			rel_wai_er;
 };
 
@@ -79,7 +67,6 @@ struct kos_flg_cb_t {
 	kos_flgptn_t		*relptn;
 #endif
 };
-
 
 struct kos_dtq_cb_t {
 	kos_cdtq_t			cdtq;

@@ -103,44 +103,54 @@ kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout)
 		goto end;
 	}
 	
-	if(cb->sdtqcnt == cb->cdtq.dtqcnt) {
-		/* 空きがない場合 */
-		if(tmout == KOS_TMO_POL) {
-			er = KOS_E_TMOUT;
-			goto end;
-		} else {
-			kos_tcb_t *tcb = g_kos_cur_tcb;
-			kos_list_insert_prev(&cb->s_wait_tsk_list, &tcb->wait_list);
-			tcb->st.lefttmo = tmout;
-			tcb->st.wobjid = dtqid;
-			tcb->st.tskwait = KOS_TTW_SDTQ;
-			er = kos_wait_nolock(tcb);
-			if(er != KOS_E_OK) {
+	if(!kos_list_empty(&cb->r_wait_tsk_list)) {
+		/* 受信待ちのタスクがいればデータを渡して終わり */
+		kos_tcb_t *tcb;
+		
+		tcb = (kos_tcb_t *)cb->r_wait_tsk_list.next;
+		*((kos_vp_int_t *)tcb->wait_exinf) = data;
+		
+		kos_cancel_wait_nolock(tcb, KOS_E_OK);
+		kos_schedule_nolock();
+		
+	} else {
+		if(cb->sdtqcnt == cb->cdtq.dtqcnt) {
+			/* 空きがない場合 */
+			if(tmout == KOS_TMO_POL) {
+				er = KOS_E_TMOUT;
 				goto end;
+			} else {
+				kos_tcb_t *tcb = g_kos_cur_tcb;
+				kos_list_insert_prev(&cb->s_wait_tsk_list, &tcb->wait_list);
+				tcb->st.lefttmo = tmout;
+				tcb->st.wobjid = dtqid;
+				tcb->st.tskwait = KOS_TTW_SDTQ;
+				tcb->wait_exinf = (kos_vp_t)data;
+				er = kos_wait_nolock(tcb);
+				if(er != KOS_E_OK) {
+					goto end;
+				}
+			}
+		} else {
+			/* 空きがあればキューにデータを追加 */
+			kos_uint_t wp;
+			
+			wp = cb->dtq_wp;
+			
+			((kos_vp_int_t *)cb->cdtq.dtq)[wp] = data;
+			
+			wp++;
+			if(wp >= cb->cdtq.dtqcnt) wp = 0;
+			cb->dtq_wp = wp;
+			cb->sdtqcnt++;
+			
+			if(!kos_list_empty(&cb->r_wait_tsk_list)) {
+				kos_tcb_t *tcb = (kos_tcb_t *)cb->r_wait_tsk_list.next;
+				
+				kos_cancel_wait_nolock(tcb, KOS_E_OK);
+				kos_schedule_nolock();
 			}
 		}
-	}
-	
-	/* キューにデータを追加 */
-	{
-		kos_uint_t wp;
-		
-		wp = cb->dtq_wp;
-		
-		((kos_vp_int_t *)cb->cdtq.dtq)[wp] = data;
-		
-		wp++;
-		if(wp >= cb->cdtq.dtqcnt) wp = 0;
-		cb->dtq_wp = wp;
-		cb->sdtqcnt++;
-		
-		if(!kos_list_empty(&cb->r_wait_tsk_list)) {
-			kos_tcb_t *tcb = (kos_tcb_t *)cb->r_wait_tsk_list.next;
-			
-			kos_cancel_wait_nolock(tcb, KOS_E_OK);
-			kos_schedule_nolock();
-		}
-		
 	}
 end:
 	kos_unlock;
@@ -168,30 +178,40 @@ kos_er_t kos_ipsnd_dtq(kos_id_t dtqid, kos_vp_int_t data)
 		goto end;
 	}
 	
-	if(cb->sdtqcnt == cb->cdtq.dtqcnt) {
-		/* 空きがない場合 */
-		er = KOS_E_TMOUT;
-		goto end;
-	}
-	
-	/* キューにデータを追加 */
-	{
-		kos_uint_t wp;
+	if(!kos_list_empty(&cb->r_wait_tsk_list)) {
+		/* 受信待ちのタスクがいればデータを渡して終わり */
+		kos_tcb_t *tcb;
 		
-		wp = cb->dtq_wp;
+		tcb = (kos_tcb_t *)cb->r_wait_tsk_list.next;
+		*((kos_vp_int_t *)tcb->wait_exinf) = data;
 		
-		((kos_vp_int_t *)cb->cdtq.dtq)[wp] = data;
+		kos_cancel_wait_nolock(tcb, KOS_E_OK);
+		kos_ischedule_nolock();
 		
-		wp++;
-		if(wp >= cb->cdtq.dtqcnt) wp = 0;
-		cb->dtq_wp = wp;
-		cb->sdtqcnt++;
-		
-		if(!kos_list_empty(&cb->r_wait_tsk_list)) {
-			kos_tcb_t *tcb = (kos_tcb_t *)cb->r_wait_tsk_list.next;
+	} else {
+		if(cb->sdtqcnt == cb->cdtq.dtqcnt) {
+			/* 空きがない場合 */
+			er = KOS_E_TMOUT;
+			goto end;
+		} else {
+			/* 空きがあればキューにデータを追加 */
+			kos_uint_t wp;
 			
-			kos_cancel_wait_nolock(tcb, KOS_E_OK);
-			kos_ischedule_nolock();
+			wp = cb->dtq_wp;
+			
+			((kos_vp_int_t *)cb->cdtq.dtq)[wp] = data;
+			
+			wp++;
+			if(wp >= cb->cdtq.dtqcnt) wp = 0;
+			cb->dtq_wp = wp;
+			cb->sdtqcnt++;
+			
+			if(!kos_list_empty(&cb->r_wait_tsk_list)) {
+				kos_tcb_t *tcb = (kos_tcb_t *)cb->r_wait_tsk_list.next;
+				
+				kos_cancel_wait_nolock(tcb, KOS_E_OK);
+				kos_ischedule_nolock();
+			}
 		}
 	}
 end:
@@ -232,26 +252,8 @@ kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout)
 		goto end;
 	}
 	
-	if(cb->sdtqcnt == 0) {
-		/* 空の場合は待機 */
-		if(tmout == KOS_TMO_POL) {
-			er = KOS_E_TMOUT;
-			goto end;
-		} else {
-			kos_tcb_t *tcb = g_kos_cur_tcb;
-			kos_list_insert_prev(&cb->r_wait_tsk_list, &tcb->wait_list);
-			tcb->st.lefttmo = tmout;
-			tcb->st.wobjid = dtqid;
-			tcb->st.tskwait = KOS_TTW_RDTQ;
-			er = kos_wait_nolock(tcb);
-			if(er != KOS_E_OK) {
-				goto end;
-			}
-		}
-	}
-	
-	/* キューからデータを読む */
-	{
+	if(cb->sdtqcnt > 0) {
+		/* キューにデータがあれば取り出す */
 		kos_uint_t rp;
 		
 		rp = cb->dtq_rp;
@@ -263,13 +265,46 @@ kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout)
 		cb->dtq_rp = rp;
 		cb->sdtqcnt--;
 		
+		/* 送信待ちのタスクが入れば送信データをキューの末尾に追加して待ちを解除 */
 		if(!kos_list_empty(&cb->s_wait_tsk_list)) {
-			kos_tcb_t *tcb = (kos_tcb_t *)cb->s_wait_tsk_list.next;
+			kos_tcb_t *tcb;
+			
+			tcb = (kos_tcb_t *)cb->s_wait_tsk_list.next;
+			
+			((kos_vp_int_t *)cb->cdtq.dtq)[cb->dtq_wp++] = (kos_vp_int_t)tcb->wait_exinf;
+			cb->sdtqcnt++;
 			
 			kos_cancel_wait_nolock(tcb, KOS_E_OK);
 			kos_schedule_nolock();
 		}
-		
+	} else {
+		if(!kos_list_empty(&cb->s_wait_tsk_list)) {
+			/* データ送信待ちのタスクが入ればデータを取得して待ちを解除 */
+			kos_tcb_t *tcb;
+			
+			tcb = (kos_tcb_t *)cb->s_wait_tsk_list.next;
+			
+			*p_data = (kos_vp_int_t)tcb->wait_exinf;
+			
+			kos_cancel_wait_nolock(tcb, KOS_E_OK);
+			kos_schedule_nolock();
+			
+		} else if(tmout == KOS_TMO_POL) {
+			er = KOS_E_TMOUT;
+			goto end;
+		} else {
+			/* データが送信されるまで待つ */
+			kos_tcb_t *tcb = g_kos_cur_tcb;
+			kos_list_insert_prev(&cb->r_wait_tsk_list, &tcb->wait_list);
+			tcb->st.lefttmo = tmout;
+			tcb->st.wobjid = dtqid;
+			tcb->st.tskwait = KOS_TTW_RDTQ;
+			tcb->wait_exinf = (kos_vp_t)p_data;
+			er = kos_wait_nolock(tcb);
+			if(er != KOS_E_OK) {
+				goto end;
+			}
+		}
 	}
 end:
 	kos_unlock;
