@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "mcu.h"
+#include <mcu.h>
 
 struct __FILE {
 	int handle; /* Add whatever you need here */

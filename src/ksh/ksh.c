@@ -1,7 +1,7 @@
 
 #include "ksh.h"
-#include "kos.h"
-#include "usbcdc.h"
+#include <kos.h>
+#include <usbcdc.h>
 #include <string.h>
 
 static usbcdc_t *s_cdc;

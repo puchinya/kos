@@ -4,12 +4,12 @@
 
 #include <stddef.h>
 #include "usb.h"
-#include "mcu.h"
+#include <mcu.h>
 
 #define USBDRV_CFG_SUPPORT_KOS
 
 #ifdef USBDRV_CFG_SUPPORT_KOS
-#include "kos.h"
+#include <kos.h>
 #endif
 
 #define USBDRV_NONEP0_CNT		5

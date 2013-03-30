@@ -348,7 +348,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>.\include</IncludePath>
+              <IncludePath>.\include;.\include\kernel;.\include\target</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -386,102 +386,82 @@
       </TargetOption>
       <Groups>
         <Group>
-          <GroupName>Source</GroupName>
+          <GroupName>kernel</GroupName>
           <Files>
-            <File>
-              <FileName>system_mb9bf61x.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\system_mb9bf61x.c</FilePath>
-            </File>
-            <File>
-              <FileName>startup_mb9bf61x.s</FileName>
-              <FileType>2</FileType>
-              <FilePath>.\src\startup_mb9bf61x.s</FilePath>
-            </File>
             <File>
               <FileName>kos.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kos.c</FilePath>
-            </File>
-            <File>
-              <FileName>ksh.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\ksh.c</FilePath>
-            </File>
-            <File>
-              <FileName>ksh_usr_cmd.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\ksh_usr_cmd.c</FilePath>
-            </File>
-            <File>
-              <FileName>led_drv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\led_drv.c</FilePath>
+              <FilePath>.\src\kernel\kos.c</FilePath>
             </File>
             <File>
               <FileName>kos_arch.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kos_arch.c</FilePath>
-            </File>
-            <File>
-              <FileName>kos_sem.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\kos_sem.c</FilePath>
-            </File>
-            <File>
-              <FileName>kos_flg.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\kos_flg.c</FilePath>
+              <FilePath>.\src\kernel\kos_arch.c</FilePath>
             </File>
             <File>
               <FileName>kos_cyc.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kos_cyc.c</FilePath>
-            </File>
-            <File>
-              <FileName>kos_tsk.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\kos_tsk.c</FilePath>
-            </File>
-            <File>
-              <FileName>kos_tim.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\kos_tim.c</FilePath>
-            </File>
-            <File>
-              <FileName>kos_vars.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\kos_vars.c</FilePath>
-            </File>
-            <File>
-              <FileName>clib_itm_stub.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\clib_itm_stub.c</FilePath>
-            </File>
-            <File>
-              <FileName>usr_init.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\usr_init.c</FilePath>
+              <FilePath>.\src\kernel\kos_cyc.c</FilePath>
             </File>
             <File>
               <FileName>kos_dtq.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kos_dtq.c</FilePath>
+              <FilePath>.\src\kernel\kos_dtq.c</FilePath>
             </File>
             <File>
-              <FileName>kos_sys.c</FileName>
+              <FileName>kos_flg.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kos_sys.c</FilePath>
+              <FilePath>.\src\kernel\kos_flg.c</FilePath>
             </File>
             <File>
               <FileName>kos_inh.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kos_inh.c</FilePath>
+              <FilePath>.\src\kernel\kos_inh.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_sem.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kernel\kos_sem.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_sys.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kernel\kos_sys.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_tim.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kernel\kos_tim.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_tsk.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kernel\kos_tsk.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_vars.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\kernel\kos_vars.c</FilePath>
             </File>
           </Files>
         </Group>
         <Group>
-          <GroupName>usbdrv</GroupName>
+          <GroupName>target</GroupName>
+          <Files>
+            <File>
+              <FileName>system_mb9bf61x.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\target\system_mb9bf61x.c</FilePath>
+            </File>
+            <File>
+              <FileName>startup_mb9bf61x.s</FileName>
+              <FileType>2</FileType>
+              <FilePath>.\src\target\startup_mb9bf61x.s</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>usb</GroupName>
           <Files>
             <File>
               <FileName>usbdrv.c</FileName>
@@ -492,6 +472,36 @@
               <FileName>usbcdc.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\usbcdc.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>user</GroupName>
+          <Files>
+            <File>
+              <FileName>usr_init.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\usr_init.c</FilePath>
+            </File>
+            <File>
+              <FileName>led_drv.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\led_drv.c</FilePath>
+            </File>
+            <File>
+              <FileName>ksh_usr_cmd.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\ksh_usr_cmd.c</FilePath>
+            </File>
+            <File>
+              <FileName>ksh.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\ksh.c</FilePath>
+            </File>
+            <File>
+              <FileName>clib_itm_stub.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\clib_itm_stub.c</FilePath>
             </File>
           </Files>
         </Group>

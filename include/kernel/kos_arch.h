@@ -11,7 +11,7 @@
 #ifndef __KOS_ARCH_H__
 #define __KOS_ARCH_H__
 
-#include "mcu.h"
+#include <mcu.h>
 
 void kos_arch_setup_systick_handler(void);
 void kos_arch_idle(void);
