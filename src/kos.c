@@ -263,6 +263,11 @@ static void kos_init_vars(void)
 #ifdef KOS_CFG_STKCHK
 	memset(g_kos_isr_stk, 0xCC, g_kos_isr_stksz);
 #endif
+
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+	kos_list_init(&g_kos_tcb_unused_list);
+	g_kos_last_tskid = 0;
+#endif
 }
 
 __asm void kos_init_regs(void)
@@ -284,7 +289,6 @@ __asm void kos_init_regs(void)
 	MSR	CONTROL, R0
 	
 	BX	LR
-	NOP
 }
 
 void kos_init(void)

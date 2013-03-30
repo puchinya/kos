@@ -21,7 +21,6 @@ extern "C" {
 
 #if __STDC_VERSION__ >= 199901L
 #  define KOS_INLINE	inline
-	ff
 #else
 #  define KOS_INLINE	__inline
 #endif
@@ -245,6 +244,7 @@ kos_er_t kos_ref_flg(kos_id_t flgid, kos_rflg_t *pk_rflg);
 #endif
 	
 /* dtq */
+#ifdef KOS_CFG_SPT_DTQ
 
 typedef struct {
 	kos_atr_t		dtqatr;
@@ -270,6 +270,8 @@ kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout);
 static KOS_INLINE kos_er_t kos_rcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data) { return kos_trcv_dtq(dtqid, p_data, KOS_TMO_FEVR); }
 static KOS_INLINE kos_er_t kos_prcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data) { return kos_trcv_dtq(dtqid, p_data, KOS_TMO_POL); }
 kos_er_t kos_ref_dtq(kos_id_t dtqid, kos_rdtq_t *pk_rdtq);
+
+#endif
 
 /* mbx */
 

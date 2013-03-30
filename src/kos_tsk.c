@@ -44,6 +44,7 @@ static void kos_tsk_entry(kos_tcb_t *tcb)
 void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx)
 {	
 	kos_uint_t *sp;
+	
 #ifdef KOS_DISPATCHER_TYPE1
 	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 10*4);
 	sp[0] = (kos_uint_t)tcb;							// R4
@@ -87,16 +88,31 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 {
 	kos_tcb_t *tcb;
 	int empty_index;
-	uint32_t *sp;
 	kos_er_id_t er_id;
 	
 	kos_lock;
 	
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+	if(g_kos_last_tskid < g_kos_max_tsk) {
+		empty_index = g_kos_last_tskid;
+		g_kos_last_tskid = g_kos_last_tskid + 1;
+	} else {
+		if(kos_list_empty(&g_kos_tcb_unused_list)) {
+			er_id = KOS_E_NOID;
+			goto end;
+		} else {
+			kos_tcb_t *unused_tcb = (kos_tcb_t *)g_kos_tcb_unused_list.next;
+			empty_index = unused_tcb->id - 1;
+			kos_list_remove((kos_list_t *)unused_tcb);
+		}
+	}
+#else
 	empty_index = kos_find_null((void **)g_kos_tcb, g_kos_max_tsk);
 	if(empty_index < 0) {
 		er_id = KOS_E_NOID;
 		goto end;
 	}
+#endif
 	
 	tcb = &g_kos_tcb_inst[empty_index];
 	g_kos_tcb[empty_index] = tcb;
@@ -119,6 +135,7 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 #endif
 
 	if(ctsk->tskatr & KOS_TA_ACT) {
+		tcb->st.actcnt = 1;
 		kos_local_act_tsk_impl_nolock(tcb, KOS_FALSE);
 	}
 	
@@ -163,6 +180,9 @@ kos_er_t kos_del_tsk(kos_id_t tskid)
 	
 	/* 登録解除 */
 	g_kos_tcb[tskid - 1] = KOS_NULL;
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+	kos_list_insert_prev(&g_kos_tcb_unused_list, (kos_list_t *)tcb);
+#endif
 	
 end:
 	kos_unlock;

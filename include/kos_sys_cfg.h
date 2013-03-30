@@ -19,5 +19,6 @@
 #define KOS_TMIN_TPRI		1
 #define KOS_TMAX_TPRI		KOS_MAX_PRI
 #define KOS_DISPATCHER_TYPE1
+#define KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH	/* acre_xxxのAPI内部でのID探索を一定時間で行います。 */
 
 #endif

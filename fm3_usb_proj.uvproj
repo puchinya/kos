@@ -409,11 +409,6 @@
               <FilePath>.\src\usbcdc.c</FilePath>
             </File>
             <File>
-              <FileName>kos.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\include\kos.h</FilePath>
-            </File>
-            <File>
               <FileName>kos.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\kos.c</FilePath>

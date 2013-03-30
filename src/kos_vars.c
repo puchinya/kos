@@ -38,6 +38,11 @@ kos_bool_t		g_kos_pend_schedule;			/* pending scheduler */
 kos_list_t		g_kos_tmo_wait_list;			/* wating timeout. */
 kos_systim_t	g_kos_systim;
 
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+kos_list_t		g_kos_tcb_unused_list;
+kos_id_t		g_kos_last_tskid;
+#endif
+
 #ifdef __ARMCC_VERSION
 #pragma arm section zidata
 #endif

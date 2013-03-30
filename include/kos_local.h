@@ -100,6 +100,11 @@ extern kos_dtq_cb_t	g_kos_dtq_cb_inst[];
 extern kos_cyc_cb_t	g_kos_cyc_cb_inst[];
 extern kos_tcb_t	g_kos_idle_tcb_inst;
 
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+extern kos_list_t	g_kos_tcb_unused_list;
+extern kos_id_t		g_kos_last_tskid;
+#endif
+
 extern kos_uint_t	g_kos_isr_stk[];
 
 extern kos_list_t	g_kos_tmo_wait_list;
