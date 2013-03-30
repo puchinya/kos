@@ -399,16 +399,6 @@
               <FilePath>.\src\startup_mb9bf61x.s</FilePath>
             </File>
             <File>
-              <FileName>usbdrv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\usbdrv.c</FilePath>
-            </File>
-            <File>
-              <FileName>usbcdc.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\usbcdc.c</FilePath>
-            </File>
-            <File>
               <FileName>kos.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\kos.c</FilePath>
@@ -487,6 +477,21 @@
               <FileName>kos_inh.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\kos_inh.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>usbdrv</GroupName>
+          <Files>
+            <File>
+              <FileName>usbdrv.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\usbdrv.c</FilePath>
+            </File>
+            <File>
+              <FileName>usbcdc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\usbcdc.c</FilePath>
             </File>
           </Files>
         </Group>

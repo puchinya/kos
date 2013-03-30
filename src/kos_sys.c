@@ -10,6 +10,75 @@
 
 #include "kos_local.h"
 
+kos_er_t kos_rot_rdq(kos_pri_t tskpri)
+{
+	kos_tcb_t *cur_tcb;
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskpri >= g_kos_max_pri)
+		return KOS_E_PAR;
+#endif
+	
+	kos_lock;
+	
+	cur_tcb = g_kos_cur_tcb;
+	
+	/* TPRI_SELF指定なら実行中のタスクのベース優先度とする */
+	if(tskpri == KOS_TPRI_SELF) {
+		tskpri = cur_tcb->st.tskbpri;
+	}
+	
+	if(tskpri == cur_tcb->st.tskpri) {
+		kos_rdy_tsk_nolock(cur_tcb);
+		kos_schedule_nolock();
+	} else {
+		kos_list_t *tcb;
+		kos_list_t *rdy_que_i;
+		
+		rdy_que_i = &g_kos_rdy_que[(kos_int_t)tskpri - 1];
+		if(kos_list_empty(rdy_que_i)) {
+			tcb = rdy_que_i->next;
+			kos_list_remove(tcb);
+			kos_list_insert_prev(rdy_que_i, tcb);
+		}
+	}
+end:
+	kos_unlock;
+	
+	return KOS_E_OK;
+}
+
+kos_er_t kos_irot_rdq(kos_pri_t tskpri)
+{
+	kos_tcb_t *cur_tcb;
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskpri == KOS_TPRI_SELF || tskpri >= g_kos_max_pri)
+		return KOS_E_PAR;
+#endif
+	
+	kos_ilock;
+	
+	cur_tcb = g_kos_cur_tcb;
+	
+	if(tskpri == cur_tcb->st.tskpri) {
+		kos_rdy_tsk_nolock(cur_tcb);
+		kos_ischedule_nolock();
+	} else {
+		kos_list_t *tcb;
+		kos_list_t *rdy_que_i;
+		
+		rdy_que_i = &g_kos_rdy_que[(kos_int_t)tskpri - 1];
+		if(kos_list_empty(rdy_que_i)) {
+			tcb = rdy_que_i->next;
+			kos_list_remove(tcb);
+			kos_list_insert_prev(rdy_que_i, tcb);
+		}
+	}
+end:
+	kos_iunlock;
+	
+	return KOS_E_OK;
+}
+
 /*!
  *	@brief	get execution task ID
  */
