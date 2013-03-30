@@ -1,4 +1,4 @@
-
+/* ksh user command. */
 #include <ksh.h>
 #include <kos.h>
 #include <string.h>

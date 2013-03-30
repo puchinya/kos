@@ -348,7 +348,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>.\include;.\include\kernel;.\include\target</IncludePath>
+              <IncludePath>.\include;.\include\kernel;.\include\target;.\include\usb;.\include\ksh</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -466,12 +466,22 @@
             <File>
               <FileName>usbdrv.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\usbdrv.c</FilePath>
+              <FilePath>.\src\usb\usbdrv.c</FilePath>
             </File>
             <File>
               <FileName>usbcdc.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\usbcdc.c</FilePath>
+              <FilePath>.\src\usb\usbcdc.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>ksh</GroupName>
+          <Files>
+            <File>
+              <FileName>ksh.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\ksh\ksh.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -492,11 +502,6 @@
               <FileName>ksh_usr_cmd.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\ksh_usr_cmd.c</FilePath>
-            </File>
-            <File>
-              <FileName>ksh.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\ksh.c</FilePath>
             </File>
             <File>
               <FileName>clib_itm_stub.c</FileName>

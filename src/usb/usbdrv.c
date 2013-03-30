@@ -1,3 +1,12 @@
+/*!
+ *	@file	usbdrv.c
+ *	@brief	usb device driver.
+ *
+ *	Copyright (c) 2013 puchinya All rights reserved.<br>
+ *	@b License BSD 2-Clause license
+ *	@b Create 2013/03/23
+ *	@author	puchinya
+ */
 
 #include "usbdrv.h"
 #include <string.h>
