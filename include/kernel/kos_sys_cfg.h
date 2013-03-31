@@ -18,7 +18,15 @@
 #define KOS_MAX_SUS_CNT		0xFF	/* sus_tskの上限キューイング数 */
 #define KOS_TMIN_TPRI		1
 #define KOS_TMAX_TPRI		KOS_MAX_PRI
+#define KOS_TMIN_TINTPRI	KOS_ARCH_MIN_INTPRI
+#define KOS_TMAX_TINTPRI	KOS_ARCH_MAX_INTPRI
+#define KOS_TBIT_TEXPTN		32
+#define KOS_TBIT_FLGPTN		32
+#define KOS_TIC_NUME		1
+#define KOS_TIC_DENO		1
+
 #define KOS_DISPATCHER_TYPE1
 #define KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH	/* acre_xxxのAPI内部でのID探索を一定時間で行います。 */
+//#define KOS_CFG_FAST_IRQ
 
 #endif

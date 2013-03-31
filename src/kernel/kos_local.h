@@ -15,8 +15,13 @@
 #include "kos.h"
 #include "kos_arch.h"
 
+#ifdef KOS_CFG_FAST_IRQ
+#define kos_lock	kos_arch_mask_pendsv()
+#define kos_unlock	kos_arch_unmask_pendsv()
+#else
 #define kos_lock	kos_arch_loc_cpu()
 #define kos_unlock	kos_arch_unl_cpu()
+#endif
 #define kos_ilock	kos_arch_loc_cpu()
 #define kos_iunlock	kos_arch_unl_cpu()
 
@@ -120,6 +125,22 @@ extern const kos_uint_t g_kos_max_cyc;
 extern const kos_uint_t g_kos_max_pri;
 extern const kos_uint_t g_kos_max_intno;
 extern const kos_uint_t	g_kos_isr_stksz;
+
+#ifdef KOS_CFG_FAST_IRQ
+
+typedef void (*kos_dly_svc_fp_t)(kos_vp_int_t arg0, kos_vp_int_t arg1, kos_vp_int_t arg2);
+typedef struct {
+	kos_dly_svc_fp_t	fp;
+	kos_vp_int_t		arg[3];
+} kos_dly_svc_t;
+extern kos_dly_svc_t g_kos_dly_svc_fifo[];
+extern kos_uint_t g_kos_dly_svc_fifo_len;
+extern volatile kos_uint_t g_kos_dly_svc_fifo_cnt;
+extern volatile kos_uint_t g_kos_dly_svc_fifo_wp;
+extern volatile kos_uint_t g_kos_dly_svc_fifo_rp;
+
+void kos_local_process_dly_svc(void);
+#endif
 
 static KOS_INLINE void kos_list_init(kos_list_t *l)
 {

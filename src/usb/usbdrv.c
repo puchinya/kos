@@ -1,6 +1,6 @@
 /*!
  *	@file	usbdrv.c
- *	@brief	usb device driver.
+ *	@brief	usb device driver for FM3 Microcontoroller.
  *
  *	Copyright (c) 2013 puchinya All rights reserved.<br>
  *	@b License BSD 2-Clause license
@@ -9,13 +9,11 @@
  */
 
 #include "usbdrv.h"
+#include "usbdrvcmn_local.h"
 #include <string.h>
-
-#define USBDRV_NUM_DEV	2
 
 static usbdrv_dev_t s_dev[USBDRV_NUM_DEV];
 
-static void usbdrv_clockon(void);
 static void usbdrv_irq(usbdrv_dev_t *dev);
 static void usbdrv_irqf(usbdrv_dev_t *dev);
 static void usbdrv_bus_reset(usbdrv_dev_t *dev);
@@ -42,120 +40,103 @@ static unsigned int usbdrv_buf_recv(usbdrv_ep_buf_t *buf,
 static unsigned int usbdrv_buf_send(usbdrv_ep_buf_t *buf,
 	__IO uint16_t *dt, unsigned int max_send_size);
 
-#define EPS_BFINI					(1<<15)
-#define EPS_DRQIE					(1<<14)
-#define EPS_SPKIE					(1<<13)
-#define EPS_BUSY					(1<<11)
-#define EPS_DRQ						(1<<10)
-#define EPS_SPK						(1<<9)
-#define EP1S_SIZE_MASK		0x1FF
-#define EP2_5S_SIZE_MASK	0x7F
-
-
-static const usbdrv_ep_regs_t s_usb0_ep1_regs =
-{
-	&FM3_USB0->EP1C,
-	&FM3_USB0->EP1S,
-	&FM3_USB0->EP1DT
-};
-
-static const usbdrv_ep_regs_t s_usb0_ep2_regs =
-{
-	&FM3_USB0->EP2C,
-	&FM3_USB0->EP2S,
-	&FM3_USB0->EP2DT
-};
-
-static const usbdrv_ep_regs_t s_usb0_ep3_regs =
-{
-	&FM3_USB0->EP3C,
-	&FM3_USB0->EP3S,
-	&FM3_USB0->EP3DT
-};
-
-static const usbdrv_ep_regs_t s_usb0_ep4_regs =
-{
-	&FM3_USB0->EP4C,
-	&FM3_USB0->EP4S,
-	&FM3_USB0->EP4DT
-};
-
-static const usbdrv_ep_regs_t s_usb0_ep5_regs =
-{
-	&FM3_USB0->EP5C,
-	&FM3_USB0->EP5S,
-	&FM3_USB0->EP5DT
-};
-
-static const usbdrv_ep_regs_t *s_usb0_all_ep_regs[] =
-{
-	&s_usb0_ep1_regs,
-	&s_usb0_ep2_regs,
-	&s_usb0_ep3_regs,
-	&s_usb0_ep4_regs,
-	&s_usb0_ep5_regs
-};
-
-int usbdrv_init(void)
-{
-	s_dev[0].regs = FM3_USB0;
-	s_dev[1].regs = FM3_USB1;
-	
-	usbdrv_clockon();
-#ifdef USBDRV_CFG_SUPPORT_KOS
-	{
-		kos_dinh_t dinh;
-		
-		dinh.inhatr = 0;
-		
-		dinh.inthdr = usbdrv_irqf;
-		dinh.exinf = &s_dev[0];
-		kos_def_inh(USB0F_IRQn, &dinh);
-		dinh.inthdr = usbdrv_irq;
-		dinh.exinf = &s_dev[0];
-		kos_def_inh(USB0F_USB0H_IRQn, &dinh);
-		dinh.inthdr = usbdrv_irqf;
-		dinh.exinf = &s_dev[1];
-		kos_def_inh(USB1F_IRQn, &dinh);
-		dinh.inthdr = usbdrv_irq;
-		dinh.exinf = &s_dev[1];
-		kos_def_inh(USB1F_USB1H_IRQn, &dinh);
-		
-		kos_ena_int(USB0F_IRQn);
-		kos_ena_int(USB0F_USB0H_IRQn);
-		kos_ena_int(USB1F_IRQn);
-		kos_ena_int(USB1F_USB1H_IRQn);
-	}
-#else
-	NVIC_EnableIRQ(USB0F_IRQn);
-	NVIC_EnableIRQ(USB0F_USB0H_IRQn);
-	NVIC_EnableIRQ(USB1F_IRQn);
-	NVIC_EnableIRQ(USB1F_USB1H_IRQn);
-#endif
-	
-	return 0;
-}
-
-usbdrv_dev_t *usbdrv_create(int port)
+usbdrv_dev_t *usbdrv_open(uint32_t port)
 {
 	usbdrv_dev_t *dev;
 	
-	if(port < 0 || port >= USBDRV_NUM_DEV)
+	if(port >= USBDRV_NUM_DEV)
+		return NULL;
+	
+	if(!usbdrv_local_use(port))
 		return NULL;
 	
 	dev = &s_dev[port];
-	if(dev->is_opened)
-		return NULL;
+	if(port == 0) {
+		dev->regs = FM3_USB0;
+	} else {
+		dev->regs = FM3_USB1;
+	}
+	dev->port = port;
 	
-	dev->is_opened = 1;
+	usbdrv_local_clockon(port);
+	
+#ifdef USBDRV_CFG_SUPPORT_KOS
+	{
+		kos_dinh_t dinh;
+		kos_intno_t usb_intno;
+		kos_intno_t usbh_intno;
+		
+		dinh.inhatr = KOS_TA_HLNG;
+#ifdef KOS_ARCH_CFG_SPT_IRQPRI
+		dinh.intpri = USBDRV_CFG_IRQPRI;
+#endif
+		dinh.exinf = dev;
+		
+		if(dev->port == 0) {
+			usb_intno = USB0F_IRQn;
+			usbh_intno = USB0F_USB0H_IRQn;
+		} else {
+			usb_intno = USB1F_IRQn;
+			usbh_intno = USB1F_USB1H_IRQn;
+		}
+		
+		dinh.inthdr = usbdrv_irqf;
+		kos_def_inh(usb_intno, &dinh);
+		dinh.inthdr = usbdrv_irq;
+		kos_def_inh(usbh_intno, &dinh);
+		kos_ena_int(usb_intno);
+		kos_ena_int(usbh_intno);
+	}
+#else
+	if(dev->port == 0) {
+		NVIC_EnableIRQ(USB0F_IRQn);
+		NVIC_EnableIRQ(USB0F_USB0H_IRQn);
+	} else {
+		NVIC_EnableIRQ(USB1F_IRQn);
+		NVIC_EnableIRQ(USB1F_USB1H_IRQn);
+	}
+#endif
+	
 	return dev;
+}
+
+void usbdrv_close(usbdrv_dev_t *dev)
+{
+#ifdef USBDRV_CFG_SUPPORT_KOS
+	kos_intno_t usb_intno;
+	kos_intno_t usbh_intno;
+	
+	if(dev->port == 0) {
+		usb_intno = USB0F_IRQn;
+		usbh_intno = USB0F_USB0H_IRQn;
+	} else {
+		usb_intno = USB1F_IRQn;
+		usbh_intno = USB1F_USB1H_IRQn;
+	}
+	
+	kos_dis_int(usb_intno);
+	kos_dis_int(usbh_intno);
+	kos_def_inh(usb_intno, KOS_NULL);
+	kos_def_inh(usbh_intno, KOS_NULL);
+	
+#else
+	if(dev->port == 0) {
+		NVIC_DisableIRQ(USB0F_IRQn);
+		NVIC_DisableIRQ(USB0F_USB0H_IRQn);
+	} else {
+		NVIC_DisableIRQ(USB1F_IRQn);
+		NVIC_DisableIRQ(USB1F_USB1H_IRQn);
+	}
+#endif
+	usbdrv_local_clockoff(dev->port);
+	usbdrv_local_unuse(dev->port);
 }
 
 void usbdrv_begin_connect_setting(usbdrv_dev_t *dev)
 {
 	FM3_USB_TypeDef *regs = dev->regs;
-	const usbdrv_ep_regs_t **ep_regs = s_usb0_all_ep_regs;
-	volatile int dummy;
+	const usbdrv_ep_regs_t **ep_regs = g_usb0_all_ep_regs;
+	volatile uint32_t dummy;
 	
 	/* D+プルアップ切断設定 */
 	usbdrv_setup_pins(dev);
@@ -182,61 +163,75 @@ void usbdrv_begin_connect_setting(usbdrv_dev_t *dev)
 	memset(&dev->ep, 0, sizeof(dev->ep));
 	
 	{
+		usbdrv_ep0_t *ep = &dev->ep0i;
+		ep->dev			= dev;
+		ep->max_pkts	= USBDRV_EP0_MAXSIZE;
+		ep->pkts_msk	= USBDRV_EP0_PKTS_MSK;
+		ep->regs		= ep_regs[0];
+	}
+	{
+		usbdrv_ep0_t *ep = &dev->ep0o;
+		ep->dev			= dev;
+		ep->max_pkts	= USBDRV_EP0_MAXSIZE;
+		ep->pkts_msk	= USBDRV_EP0_PKTS_MSK;
+		ep->regs		= ep_regs[1];
+	}
+	{
 		usbdrv_ep_t *ep = &dev->ep[0];
-		ep->dev				= dev;
-		ep->index			= 1;
+		ep->dev			= dev;
+		ep->index		= 1;
 		ep->pkts_msk	= USBDRV_EP1_PKTS_MSK;
-		ep->regs			= ep_regs[0];
+		ep->regs		= ep_regs[2];
 	}
 	{
 		usbdrv_ep_t *ep = &dev->ep[1];
-		ep->dev				= dev;
-		ep->index			= 2;
+		ep->dev			= dev;
+		ep->index		= 2;
 		ep->pkts_msk	= USBDRV_EP2_PKTS_MSK;
-		ep->regs			= ep_regs[1];
+		ep->regs		= ep_regs[3];
 	}
 	{
 		usbdrv_ep_t *ep = &dev->ep[2];
-		ep->dev				= dev;
-		ep->index			= 3;
+		ep->dev			= dev;
+		ep->index		= 3;
 		ep->pkts_msk	= USBDRV_EP3_PKTS_MSK;
-		ep->regs			= ep_regs[2];
+		ep->regs		= ep_regs[4];
 	}
 	{
 		usbdrv_ep_t *ep = &dev->ep[3];
-		ep->dev				= dev;
-		ep->index			= 4;
+		ep->dev			= dev;
+		ep->index		= 4;
 		ep->pkts_msk	= USBDRV_EP4_PKTS_MSK;
-		ep->regs			= ep_regs[3];
+		ep->regs		= ep_regs[5];
 	}
 	{
 		usbdrv_ep_t *ep = &dev->ep[4];
-		ep->dev				= dev;
-		ep->index			= 5;
+		ep->dev			= dev;
+		ep->index		= 5;
 		ep->pkts_msk	= USBDRV_EP5_PKTS_MSK;
-		ep->regs			= ep_regs[4];
+		ep->regs		= ep_regs[6];
 	}
 }
 
-int usbdrv_config_ep(usbdrv_dev_t *dev, const uint8_t *cfg_desc)
+usbdrv_er_t usbdrv_config_ep(usbdrv_dev_t *dev, const uint8_t *cfg_desc)
 {
-	unsigned int total_len;
-	unsigned int i;
+	uint32_t total_len;
+	uint32_t i;
 	const uint8_t *desc;
 	
 	desc = cfg_desc;
-	total_len = ((unsigned int)cfg_desc[3] << 8) | cfg_desc[2];
+	total_len = ((uint32_t)cfg_desc[3] << 8) | cfg_desc[2];
 
 	for(i = 0; i < total_len; ) {
-		unsigned int desc_type, desc_len;
+		uint32_t desc_type, desc_len;
 		
 		desc_type = desc[1];
 		desc_len = desc[0];
 		
 		if(desc_type == 0x05) {
-			unsigned int ep_addr, ep_attrs, ep_max_pkts;
+			uint32_t ep_addr, ep_attrs, ep_max_pkts;
 			usbdrv_ep_t *ep;
-			unsigned int c;
+			uint32_t c;
 			
 			ep_addr = desc[2];
 			ep_attrs = desc[3];
@@ -250,7 +245,7 @@ int usbdrv_config_ep(usbdrv_dev_t *dev, const uint8_t *cfg_desc)
 			//}
 			
 			c = 0x8000 | ep->max_pkts;
-			c |= ((unsigned int)ep->mode << 13);
+			c |= ((uint32_t)ep->mode << 13);
 			if(ep->dir == USBDRV_EP_DIR_IN)
 				c |= 1<<12;
 			*ep->regs->C = c;
@@ -260,12 +255,12 @@ int usbdrv_config_ep(usbdrv_dev_t *dev, const uint8_t *cfg_desc)
 		desc += desc_len;
 	}
 	
-	return 0;
+	return USBDRV_E_OK;
 }
 
 void usbdrv_end_connect_setting(usbdrv_dev_t *dev)
 {
-	volatile int dummy;
+	volatile uint32_t dummy;
 	FM3_USB_TypeDef *regs = dev->regs;
 	
 	/* UDCC_RST=0 設定 */
@@ -303,16 +298,11 @@ void usbdrv_end_connect_setting(usbdrv_dev_t *dev)
 	
 }
 
-void usbdrv_destory(usbdrv_dev_t *dev)
-{
-	dev->is_opened = 0;
-}
-
+#ifndef USBDRV_CFG_SUPPORT_KOS
 void INT8_31_Handler(void)
 {
 }
 
-#ifndef USBDRV_CFG_SUPPORT_KOS
 void USB0_Handler(void)
 {
 	usbdrv_irq(&s_dev[0]);
@@ -358,67 +348,12 @@ static void usbdrv_setup_pins(usbdrv_dev_t *dev)
 	dev->regs->UDCC_f.PWC = 0;
 }
 
-static void usbdrv_clockon(void)
-{
-	
-	/* UCEN=0 を設定 */
-	FM3_USBETHERNETCLK->UCCR_f.UCEN0 = 0;
-	FM3_USBETHERNETCLK->UCCR_f.UCEN1 = 0;
-	
-	/* UCEN=1 になるまで待機 */
-	while(FM3_USBETHERNETCLK->UCCR_f.UCEN0 != 0);
-	while(FM3_USBETHERNETCLK->UCCR_f.UCEN1 != 0);
-	
-	/* UPLLEN=0 を設定 */
-	FM3_USBETHERNETCLK->UPCR1_f.UPLLEN = 0;
-	
-	/* UCSEL を設定 */
-	FM3_USBETHERNETCLK->UCCR_f.UCSEL0 = 1;
-	FM3_USBETHERNETCLK->UCCR_f.UCSEL1 = 1;
-	
-	/* PLL発振クロックの場合(UCSEL=1) */
-	
-	/* UPINC を設定 */
-	FM3_USBETHERNETCLK->UPCR1_f.UPINC = 0;
-	/* UPOWT を設定 */
-	FM3_USBETHERNETCLK->UPCR2 = 7;
-	/* UPLLK を設定 */
-	FM3_USBETHERNETCLK->UPCR3 = 0;
-	/* UPLLN を設定 */
-	FM3_USBETHERNETCLK->UPCR4 = 0x3B;
-	/* UPLLM を設定 */
-	FM3_USBETHERNETCLK->UPCR5 = 0x04;
-	/* UPCSE=0 を設定 */
-	FM3_USBETHERNETCLK->UPINT_ENR_f.UPCSE = 0;
-	
-	/* 割り込みは使わない */
-	
-	/* UPLLEN=0 を設定 */
-	FM3_USBETHERNETCLK->UPCR1_f.UPLLEN = 1;
-	
-	/* UPRDY=1 になるまで待機 */
-	while(FM3_USBETHERNETCLK->UP_STR_f.UPRDY != 1);
-	
-	FM3_USBETHERNETCLK->UCCR_f.UCEN0 = 1;
-	FM3_USBETHERNETCLK->UCCR_f.UCEN1 = 1;
-	
-	/* 5cycle待つ */
-	__NOP();
-	__NOP();
-	__NOP();
-	__NOP();
-	__NOP();
-	
-	FM3_USBETHERNETCLK->USBEN0 = 1;
-	FM3_USBETHERNETCLK->USBEN1 = 1;
-}
-
 /* EP1-5 DRQ */
 static void usbdrv_irqf(usbdrv_dev_t *dev)
 {
 	FM3_USB_TypeDef *regs = dev->regs;
 	uint16_t st;
-	volatile int dummy;
+	volatile uint32_t dummy;
 	
 	st = regs->EP1S;
 	if(st & EPS_DRQ) {
@@ -514,7 +449,7 @@ static void usbdrv_ctrl_setup(usbdrv_dev_t *dev)
 	regs->EP0IS_f.BFINI = 1;
 	regs->EP0IS_f.BFINI = 0;
 	
-	dev->ep0.stat = USBDRV_EP_STAT_SETUP;
+	dev->setup_stat = USBDRV_SETUP_STAT_SETUP;
 	
 	/* デバイスリクエストを読む */
 	i = usvdrv_ctrl_read_device_request(dev, &device_request);
@@ -522,14 +457,14 @@ static void usbdrv_ctrl_setup(usbdrv_dev_t *dev)
 	/* リクエストを読み込んだので要因を解除 */
 	regs->UDCS_f.SETP = 0;
 	
+	/* リクエストの読み込みが完了したので受信割り込み要求をクリア */
 	regs->EP0OS_f.DRQO = 0;
 	
-	if(i == 0) {
-	
+	if(i) {
 		/* デバイスリクエストを処理する */
 		usbdrv_ctrl_process_device_request(dev, &device_request);
-		if(dev->ep0.stat == USBDRV_EP_STAT_SETUP) {
-			dev->ep0.stat = USBDRV_EP_STAT_HSIN;
+		if(dev->setup_stat == USBDRV_SETUP_STAT_SETUP) {
+			dev->setup_stat = USBDRV_SETUP_STAT_HSIN;
 			dev->regs->EP0IS_f.DRQIIE = 1;
 		}
 	} else {
@@ -537,19 +472,20 @@ static void usbdrv_ctrl_setup(usbdrv_dev_t *dev)
 	}
 }
 
-static int usvdrv_ctrl_read_device_request(usbdrv_dev_t *dev, usb_device_request_t *device_request)
+static int usvdrv_ctrl_read_device_request(usbdrv_dev_t *dev,
+	usb_device_request_t *device_request)
 {
 	FM3_USB_TypeDef *regs = dev->regs;
 	
-	if((regs->EP0OS & 0x4F) != 8)
-		return -1;
+	if((regs->EP0OS & USBDRV_EP0_PKTS_MSK) != 8)
+		return 0;
 	
 	*(uint16_t *)&device_request->bmRequestType = regs->EP0DT;
 	device_request->wValue = regs->EP0DT;
 	device_request->wIndex = regs->EP0DT;
 	device_request->wLength = regs->EP0DT;
 	
-	return 0;
+	return 1;
 }
 
 static void usbdrv_ctrl_process_device_request(usbdrv_dev_t *dev,
@@ -561,21 +497,21 @@ static void usbdrv_ctrl_process_device_request(usbdrv_dev_t *dev,
 static void usbdrv_ctrl_ep0_rx(usbdrv_dev_t *dev)
 {
 	FM3_USB_TypeDef *regs = dev->regs;
-	unsigned int pkt_size;
-	volatile int dummy;
+	uint32_t pkt_size;
+	volatile uint32_t dummy;
 	
-	if(dev->ep0.stat == USBDRV_EP_STAT_DATAOUT) {
-		pkt_size = regs->EP0OS & 0x7f;
+	if(dev->setup_stat == USBDRV_SETUP_STAT_DATAOUT) {
+		pkt_size = regs->EP0OS & USBDRV_EP0_PKTS_MSK;
 		
-		usbdrv_buf_recv(&dev->ep0.rx_buf,
+		usbdrv_buf_recv(&dev->ep0o.buf,
 			&regs->EP0DT, pkt_size);
 		
 		if(pkt_size < USBDRV_EP0_MAXSIZE) {
 			regs->EP0IS_f.DRQIIE = 1;
-			dev->ep0.stat = USBDRV_EP_STAT_HSOUT;
+			dev->setup_stat = USBDRV_SETUP_STAT_HSOUT;
 		}
 	} else {
-		dev->ep0.stat = USBDRV_EP_STAT_SETUP;
+		dev->setup_stat = USBDRV_SETUP_STAT_SETUP;
 	}
 	
 	regs->EP0OS_f.DRQO = 0;
@@ -585,27 +521,27 @@ static void usbdrv_ctrl_ep0_rx(usbdrv_dev_t *dev)
 static void usbdrv_ctrl_ep0_tx(usbdrv_dev_t *dev)
 {
 	FM3_USB_TypeDef *regs = dev->regs;
-	unsigned int send_size;
-	unsigned int pkt_size;
-	volatile int dummy;
+	uint32_t send_size;
+	uint32_t pkt_size;
+	volatile uint32_t dummy;
 	
-	pkt_size = regs->EP0IS & 0x7f;
+	pkt_size = regs->EP0IS & USBDRV_EP0_PKTS_MSK;
 	
-	send_size = usbdrv_buf_send(&dev->ep0.tx_buf,
+	send_size = usbdrv_buf_send(&dev->ep0i.buf,
 		&regs->EP0DT, USBDRV_EP0_MAXSIZE);
 	
 	if(send_size == 0) {
 		/* 送るものがない */
 		regs->EP0IS_f.DRQIIE = 0;
-		if(dev->ep0.stat == USBDRV_EP_STAT_DATAIN) {
-			dev->ep0.stat = USBDRV_EP_STAT_HSOUT;
+		if(dev->setup_stat == USBDRV_SETUP_STAT_DATAIN) {
+			dev->setup_stat = USBDRV_SETUP_STAT_HSOUT;
 		} else {
-			dev->ep0.stat = USBDRV_EP_STAT_SETUP;
+			dev->setup_stat = USBDRV_SETUP_STAT_SETUP;
 		}
 	} else if(send_size < USBDRV_EP0_MAXSIZE) {
 		/* 最終パケットを送信完了 */
 		regs->EP0IS_f.DRQIIE = 0;
-		dev->ep0.stat = USBDRV_EP_STAT_HSIN;
+		dev->setup_stat = USBDRV_SETUP_STAT_HSIN;
 	} else {
 		regs->EP0IS_f.DRQIIE = 1;
 	}
@@ -614,15 +550,15 @@ static void usbdrv_ctrl_ep0_tx(usbdrv_dev_t *dev)
 	dummy = regs->EP0C;
 }
 
-static unsigned int usbdrv_buf_send(usbdrv_ep_buf_t *buf,
-	__IO uint16_t *dt, unsigned int max_send_size)
+static uint32_t usbdrv_buf_send(usbdrv_ep_buf_t *buf,
+	__IO uint16_t *dt, uint32_t max_send_size)
 {
 	uint8_t *p = buf->user_buf.p;
 	__IO uint8_t *dtl;
 	__IO uint8_t *dth;
-	unsigned int s = buf->user_buf.size;
-	unsigned int cps = s;
-	unsigned int i;
+	uint32_t s = buf->user_buf.size;
+	uint32_t cps = s;
+	uint32_t i;
 	
 	if(cps > max_send_size) {
 		cps = max_send_size;
@@ -643,15 +579,15 @@ static unsigned int usbdrv_buf_send(usbdrv_ep_buf_t *buf,
 	return cps;
 }
 
-static unsigned int usbdrv_buf_recv(usbdrv_ep_buf_t *buf,
-	__IO uint16_t *dt, unsigned int max_recv_size)
+static uint32_t usbdrv_buf_recv(usbdrv_ep_buf_t *buf,
+	__IO uint16_t *dt, uint32_t max_recv_size)
 {
 	uint8_t *p = buf->user_buf.p;
 	__IO uint8_t *dtl;
 	__IO uint8_t *dth;
-	unsigned int s = buf->user_buf.size;
-	unsigned int cps = s;
-	unsigned int i;
+	uint32_t s = buf->user_buf.size;
+	uint32_t cps = s;
+	uint32_t i;
 	
 	if(cps > max_recv_size) {
 		cps = max_recv_size;
@@ -680,9 +616,9 @@ static void usbdrv_trans(usbdrv_ep_t *ep)
 static void usbdrv_bulk_tx(usbdrv_ep_t *ep)
 {
 	const usbdrv_ep_regs_t *regs = ep->regs;
-	unsigned int send_size;
-	unsigned int pkt_size;
-	volatile int dummy;
+	uint32_t send_size;
+	uint32_t pkt_size;
+	volatile uint32_t dummy;
 	
 	pkt_size = *regs->S & ep->pkts_msk;
 	
@@ -720,9 +656,9 @@ static void usbdrv_bulk_tx(usbdrv_ep_t *ep)
 static void usbdrv_bulk_rx(usbdrv_ep_t *ep)
 {
 	const usbdrv_ep_regs_t *regs = ep->regs;
-	unsigned int recv_size;
-	unsigned int pkt_size;
-	volatile int dummy;
+	uint32_t recv_size;
+	uint32_t pkt_size;
+	volatile uint32_t dummy;
 	
 	pkt_size = *regs->S & ep->pkts_msk;
 	
@@ -778,24 +714,24 @@ void usbdrv_ep0_stall(usbdrv_dev_t *dev)
 }
 
 void usbdrv_ep0_begin_write(usbdrv_dev_t *dev,
-	const uint8_t *buf, unsigned int size)
+	const uint8_t *buf, uint32_t size)
 {
-	dev->ep0.tx_buf.user_buf.p = (uint8_t *)buf;
-	dev->ep0.tx_buf.user_buf.size = size;
-	dev->ep0.stat = USBDRV_EP_STAT_DATAIN;
+	dev->ep0i.buf.user_buf.p = (uint8_t *)buf;
+	dev->ep0i.buf.user_buf.size = size;
+	dev->setup_stat = USBDRV_SETUP_STAT_DATAIN;
 	dev->regs->EP0IS_f.DRQIIE = 1;
 }
 
 void usbdrv_ep0_begin_read(usbdrv_dev_t *dev,
-	uint8_t *buf, unsigned int size)
+	uint8_t *buf, uint32_t size)
 {
-	dev->ep0.rx_buf.user_buf.p = (uint8_t *)buf;
-	dev->ep0.rx_buf.user_buf.size = size;
-	dev->ep0.stat = USBDRV_EP_STAT_DATAOUT;
+	dev->ep0o.buf.user_buf.p = (uint8_t *)buf;
+	dev->ep0o.buf.user_buf.size = size;
+	dev->setup_stat = USBDRV_SETUP_STAT_DATAOUT;
 	dev->regs->EP0OS_f.DRQOIE = 1;
 }
 
-int usbdrv_ep_read(usbdrv_ep_t *ep, uint8_t *buf, unsigned int size)
+int32_t usbdrv_ep_read(usbdrv_ep_t *ep, uint8_t *buf, uint32_t size)
 {
 	if(size == 0) return 0;
 	
@@ -816,10 +752,10 @@ int usbdrv_ep_read(usbdrv_ep_t *ep, uint8_t *buf, unsigned int size)
 	}
 #endif
 	
-	return (int)(size - ep->buf.user_buf.size);
+	return (int32_t)(size - ep->buf.user_buf.size);
 }
 
-int usbdrv_ep_write(usbdrv_ep_t *ep, const uint8_t *buf, unsigned int size)
+int32_t usbdrv_ep_write(usbdrv_ep_t *ep, const uint8_t *buf, uint32_t size)
 {
 	if(size == 0) return 0;
 	
@@ -840,7 +776,7 @@ int usbdrv_ep_write(usbdrv_ep_t *ep, const uint8_t *buf, unsigned int size)
 	}
 #endif
 	
-	return (int)size;
+	return (int32_t)size;
 }
 
 static void usbdrv_bus_reset(usbdrv_dev_t *dev)

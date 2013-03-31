@@ -35,42 +35,42 @@ struct usb_device_request_t
 };
 
 /* Standard Device Request Types */
-#define USB_REQUEST_TYPE_HOST_TO_DEVICE				(0<<7)
-#define USB_REQUEST_TYPE_DEVICE_TO_HOST				(1<<7)
-#define USB_REQUEST_TYPE_STANDARD							(0<<5)
-#define USB_REQUEST_TYPE_CLASS								(1<<5)
-#define USB_REQUEST_TYPE_VENDOR								(2<<5)
-#define USB_REQUEST_TYPE_DEVICE								(0)
-#define USB_REQUEST_TYPE_INTERFACE						(1)
-#define USB_REQUEST_TYPE_ENDPOINT							(2)
-#define USB_REQUEST_TYPE_OTHER								(3)
+#define USB_REQUEST_TYPE_HOST_TO_DEVICE		(0<<7)
+#define USB_REQUEST_TYPE_DEVICE_TO_HOST		(1<<7)
+#define USB_REQUEST_TYPE_STANDARD			(0<<5)
+#define USB_REQUEST_TYPE_CLASS				(1<<5)
+#define USB_REQUEST_TYPE_VENDOR				(2<<5)
+#define USB_REQUEST_TYPE_DEVICE				(0)
+#define USB_REQUEST_TYPE_INTERFACE			(1)
+#define USB_REQUEST_TYPE_ENDPOINT			(2)
+#define USB_REQUEST_TYPE_OTHER				(3)
 
 /* Standard Request Codes */
-#define USB_REQUEST_CODE_GET_STATUS						0
-#define USB_REQUEST_CODE_CLEAR_FEATURE				1
-#define USB_REQUEST_CODE_SET_FEATURE					3
-#define USB_REQUEST_CODE_SET_ADDRESS					5
-#define USB_REQUEST_CODE_GET_DESCRIPTOR				6
-#define USB_REQUEST_CODE_SET_DESCRIPTOR				7
-#define USB_REQUEST_CODE_GET_CONFIG						8
-#define USB_REQUEST_CODE_SET_CONFIG						9
-#define USB_REQUEST_CODE_GET_INTERFACE				10
-#define USB_REQUEST_CODE_SET_INTERFACE				11
-#define USB_REQUEST_CODE_SYNCH_FRAME					12
+#define USB_REQUEST_CODE_GET_STATUS			0
+#define USB_REQUEST_CODE_CLEAR_FEATURE		1
+#define USB_REQUEST_CODE_SET_FEATURE		3
+#define USB_REQUEST_CODE_SET_ADDRESS		5
+#define USB_REQUEST_CODE_GET_DESCRIPTOR		6
+#define USB_REQUEST_CODE_SET_DESCRIPTOR		7
+#define USB_REQUEST_CODE_GET_CONFIG			8
+#define USB_REQUEST_CODE_SET_CONFIG			9
+#define USB_REQUEST_CODE_GET_INTERFACE		10
+#define USB_REQUEST_CODE_SET_INTERFACE		11
+#define USB_REQUEST_CODE_SYNCH_FRAME		12
 
 /*-----------------------------------------------------------------------------
 	Standard Descriptors
 -----------------------------------------------------------------------------*/
 
 /* Descriptor Types */
-#define USB_DESCRIPTOR_TYPE_DEVICE							1
-#define USB_DESCRIPTOR_TYPE_CONFIG							2
-#define USB_DESCRIPTOR_TYPE_STRING							3
-#define USB_DESCRIPTOR_TYPE_INTERFACE						4
-#define USB_DESCRIPTOR_TYPE_ENDPOINT						5
-#define USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER		6
+#define USB_DESCRIPTOR_TYPE_DEVICE				1
+#define USB_DESCRIPTOR_TYPE_CONFIG				2
+#define USB_DESCRIPTOR_TYPE_STRING				3
+#define USB_DESCRIPTOR_TYPE_INTERFACE			4
+#define USB_DESCRIPTOR_TYPE_ENDPOINT			5
+#define USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER	6
 #define USB_DESCRIPTOR_TYPE_OTHER_SPEED_CONFIG	7
-#define USB_DESCRIPTOR_TYPE_INTERFACE_POWER			8
+#define USB_DESCRIPTOR_TYPE_INTERFACE_POWER		8
 
 #ifndef __cplusplus
 typedef struct usb_device_descriptor_t usb_device_descriptor_t;

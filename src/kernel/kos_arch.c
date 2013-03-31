@@ -30,11 +30,12 @@ void kos_arch_setup_systick_handler(void)
 {
 	uint32_t period;
 	
+	NVIC_SetPriority(PendSV_IRQn, KOS_ARCH_PRENSV_PRI);
+	
 	period = SystemCoreClock / 100;	
 	SysTick_Config(period);
 	
-	NVIC_SetPriority(PendSV_IRQn, 255);
-	NVIC_SetPriority(SysTick_IRQn, 254);
+	NVIC_SetPriority(SysTick_IRQn, KOS_ARCH_SYSTICK_PRI);
 }
 
 /*-----------------------------------------------------------------------------
@@ -96,6 +97,49 @@ kos_er_t kos_ena_int(kos_intno_t intno)
 #endif
 	
 	NVIC_EnableIRQ((IRQn_Type)intno);
+	
+	return KOS_E_OK;
+}
+
+kos_er_t kos_vchg_intpri(kos_intno_t intno, kos_intpri_t intpri)
+{
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(intno > KOS_MAX_INTNO) {
+		return KOS_E_PAR;
+	}
+#endif
+	NVIC_SetPriority((IRQn_Type)intno, (uint32_t)intpri);
+	
+	return KOS_E_OK;
+}
+
+kos_er_t kos_vget_intpri(kos_intno_t intno, kos_intpri_t *p_intpri)
+{
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(intno > KOS_MAX_INTNO || p_intpri == KOS_NULL) {
+		return KOS_E_PAR;
+	}
+#endif
+	*p_intpri = NVIC_GetPriority((IRQn_Type)intno);
+	
+	return KOS_E_OK;
+}
+
+kos_er_t kos_chg_imsk(kos_intpri_t imsk)
+{
+	__set_BASEPRI(imsk);
+	
+	return KOS_E_OK;
+}
+
+kos_er_t kos_get_imsk(kos_intpri_t *p_imsk)
+{
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(p_imsk == KOS_NULL) {
+		return KOS_E_PAR;
+	}
+#endif
+	*p_imsk = __get_BASEPRI();
 	
 	return KOS_E_OK;
 }
@@ -175,7 +219,9 @@ __asm void PendSV_Handler(void)
 {
 	extern kos_schedule_impl_nolock
 	
+#ifndef KOS_CFG_FAST_IRQ
 	CPSID		i
+#endif
 	
 	/* store R4-R11 to PSP */
 	MRS			R0, PSP
@@ -183,6 +229,9 @@ __asm void PendSV_Handler(void)
 	MSR			PSP, R0
 	
 	MOV			R11, LR
+#ifdef KOS_CFG_FAST_IRQ
+	BL			kos_local_process_dly_svc
+#endif
 	BL			kos_schedule_impl_nolock
 	MOV			LR, R11
 	
@@ -191,7 +240,9 @@ __asm void PendSV_Handler(void)
 	LDMIA		R0!, {R4-R11}
 	MSR			PSP, R0
 	
+#ifndef KOS_CFG_FAST_IRQ
 	CPSIE		i
+#endif
 	
 	BX			LR
 }

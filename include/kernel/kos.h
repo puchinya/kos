@@ -141,14 +141,6 @@ typedef struct {
 	kos_stat_t	tskwait;
 } kos_rtst_t;
 
-typedef unsigned int kos_intno_t;
-
-typedef struct {
-	kos_atr_t		inhatr;	/* */
-	kos_fp_t		inthdr;	/* 割り込みハンドラ */
-	kos_vp_int_t	exinf;	/* 割り込みハンドラに渡す値 */
-} kos_dinh_t;
-
 typedef struct {
 	kos_id_t		tid;
 	kos_bool_t		ctx;
@@ -327,9 +319,29 @@ kos_bool_t kos_sns_dsp(void);
 kos_bool_t kos_sns_dpn(void);
 
 /* 割り込み管理機能 */
-kos_er_t kos_def_inh(kos_intno_t intno, const kos_dinh_t *pk_dinh) __attribute__((__nonnull__(2)));
+
+typedef unsigned int kos_intno_t;
+typedef unsigned int kos_intpri_t;
+
+typedef struct {
+	kos_atr_t		inhatr;	/* interrupt attribute. */
+	kos_fp_t		inthdr;	/* interrupt handler. */
+	kos_vp_int_t	exinf;	/* interrupt handler's param. */
+#ifdef KOS_ARCH_CFG_SPT_IRQPRI
+	kos_intpri_t	intpri;	/* interrupt priotiy. */
+#endif
+} kos_dinh_t;
+
+
+kos_er_t kos_def_inh(kos_intno_t intno, const kos_dinh_t *pk_dinh);
 kos_er_t kos_dis_int(kos_intno_t intno);
 kos_er_t kos_ena_int(kos_intno_t intno);
+#ifdef KOS_ARCH_CFG_SPT_IRQPRI
+kos_er_t kos_vchg_intpri(kos_intno_t intno, kos_intpri_t intpri);
+kos_er_t kos_vget_intpri(kos_intno_t intno, kos_intpri_t *p_intpri);
+kos_er_t kos_chg_imsk(kos_intpri_t imsk);
+kos_er_t kos_get_imsk(kos_intpri_t *p_imsk);
+#endif
 
 #ifdef __cplusplus
 };

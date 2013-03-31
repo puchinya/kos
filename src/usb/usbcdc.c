@@ -184,20 +184,20 @@ static const uint8_t usbcdc_string_desc3[] =
 struct usbcdc_t
 {
 	usbdrv_dev_t	*dev;
-	unsigned int	ctrl_line;
-	uint8_t				line_code[7];
+	uint32_t		ctrl_line;
+	uint8_t			line_code[7];
 #ifdef USBDRV_CFG_SUPPORT_KOS
-	kos_id_t			w_semid;
-	kos_id_t			r_semid;
+	kos_id_t		w_semid;
+	kos_id_t		r_semid;
 #endif
 };
 
-usbcdc_t *usbcdc_create(int usb_port)
+usbcdc_t *usbcdc_open(uint32_t usb_port)
 {
 	usbdrv_dev_t *dev;
 	static usbcdc_t cdc;
 	
-	dev = usbdrv_create(usb_port);
+	dev = usbdrv_open(usb_port);
 	
 	cdc.dev = dev;
 	cdc.ctrl_line = 0;
@@ -221,26 +221,28 @@ usbcdc_t *usbcdc_create(int usb_port)
 		cdc.w_semid = kos_cre_sem(&csem);
 	}
 #endif
+	
+	usbdrv_begin_connect_setting(cdc.dev);
+	usbdrv_config_ep(cdc.dev, usbcdc_cfg_desc);
+	usbdrv_end_connect_setting(cdc.dev);
+	
 	return &cdc;
 }
 
-int usbcdc_open(usbcdc_t *cdc)
-{
-	usbdrv_begin_connect_setting(cdc->dev);
-	usbdrv_config_ep(cdc->dev, usbcdc_cfg_desc);
-	usbdrv_end_connect_setting(cdc->dev);
-	return 0;
-}
-
-int usbcdc_close(usbcdc_t *cdc)
-{
-	return 0;
-}
-
-int usbcdc_write(usbcdc_t *cdc, const void *buf, unsigned int buf_size)
+usbdrv_er_t usbcdc_close(usbcdc_t *cdc)
 {
 #ifdef USBDRV_CFG_SUPPORT_KOS
-	int r;
+	kos_del_sem(cdc->r_semid);
+	kos_del_sem(cdc->w_semid);
+#endif
+	usbdrv_close(cdc->dev);
+	return USBDRV_E_OK;
+}
+
+int32_t usbcdc_write(usbcdc_t *cdc, const void *buf, uint32_t buf_size)
+{
+#ifdef USBDRV_CFG_SUPPORT_KOS
+	int32_t r;
 	kos_wai_sem(cdc->w_semid);
 	r = usbdrv_ep_write(&cdc->dev->ep[2-1], (const uint8_t *)buf, buf_size);
 	kos_sig_sem(cdc->w_semid);
@@ -250,10 +252,10 @@ int usbcdc_write(usbcdc_t *cdc, const void *buf, unsigned int buf_size)
 #endif
 }
 
-int usbcdc_read(usbcdc_t *cdc, void *buf, unsigned int buf_size)
+int32_t usbcdc_read(usbcdc_t *cdc, void *buf, uint32_t buf_size)
 {
 #ifdef USBDRV_CFG_SUPPORT_KOS
-	int r;
+	int32_t r;
 	kos_wai_sem(cdc->r_semid);
 	r = usbdrv_ep_read(&cdc->dev->ep[1-1], (uint8_t *)buf, buf_size);
 	kos_sig_sem(cdc->r_semid);
@@ -263,7 +265,7 @@ int usbcdc_read(usbcdc_t *cdc, void *buf, unsigned int buf_size)
 #endif
 }
 
-static unsigned int usbcdc_min(unsigned int x, unsigned int y)
+static __inline uint32_t usbcdc_min(uint32_t x, uint32_t y)
 {
 	return x < y ? x : y;
 }
@@ -271,7 +273,7 @@ static unsigned int usbcdc_min(unsigned int x, unsigned int y)
 static void usbcdc_process_device_request_get_descriptor(usbdrv_dev_t *dev,
 	const usb_device_request_t *device_request)
 {
-	unsigned int wLength;
+	uint32_t wLength;
 	wLength = device_request->wLength;
 	switch(((uint8_t *)&device_request->wValue)[1])
 	{
@@ -281,7 +283,7 @@ static void usbcdc_process_device_request_get_descriptor(usbdrv_dev_t *dev,
 		break;
 	case 0x02:
 		usbdrv_ep0_begin_write(dev, usbcdc_cfg_desc,
-			usbcdc_min(((unsigned int)usbcdc_cfg_desc[3] << 8) | usbcdc_cfg_desc[2],
+			usbcdc_min(((uint32_t)usbcdc_cfg_desc[3] << 8) | usbcdc_cfg_desc[2],
 				wLength));
 		break;
 	case 0x03:
@@ -314,7 +316,7 @@ static void usbcdc_process_class_request(usbdrv_dev_t *dev,
 	const usb_device_request_t *device_request)
 {
 	usbcdc_t *cdc;
-	unsigned int wLength;
+	uint32_t wLength;
 	wLength = device_request->wLength;
 	
 	cdc = (usbcdc_t *)dev->unique_data;

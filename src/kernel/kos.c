@@ -222,6 +222,36 @@ void kos_process_tmo(void)
 	}
 }
 
+#ifdef KOS_CFG_FAST_IRQ
+/*!
+ *	@brief	execute delayed SVC
+ *	@author	puchinya
+ *	@date	2013.3.30
+ */
+void kos_local_process_dly_svc(void)
+{
+	kos_uint_t rp;
+	kos_uint_t rp;
+
+	rp = g_kos_dly_svc_fifo_rp;
+	while(g_kos_dly_svc_fifo_cnt > 0) {
+		kos_dly_svc_t *dly_svc;
+
+		dly_svc = &g_kos_dly_svc_fifo[rp];
+		
+		dly_svc->fp(dly_svc->arg[0], dly_svc->arg[1], dly_svc->arg[2]);
+		
+		rp = rp + 1;
+		if(rp >= g_kos_dly_svc_fifo_len) rp = 0;
+		
+		kos_ilock;
+		g_kos_dly_svc_fifo_rp = rp;
+		g_kos_dly_svc_fifo_cnt--;
+		kos_iunlock;
+	}
+}
+#endif
+
 /*-----------------------------------------------------------------------------
 	起動処理
 -----------------------------------------------------------------------------*/
@@ -267,6 +297,11 @@ static void kos_init_vars(void)
 #ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
 	kos_list_init(&g_kos_tcb_unused_list);
 	g_kos_last_tskid = 0;
+#endif
+#ifdef KOS_CFG_FAST_IRQ
+	g_kos_dly_svc_fifo_cnt = 0;
+	g_kos_dly_svc_fifo_wp = 0;
+	g_kos_dly_svc_fifo_rp = 0;
 #endif
 }
 

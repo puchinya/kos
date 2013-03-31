@@ -43,6 +43,13 @@ kos_list_t		g_kos_tcb_unused_list;
 kos_id_t		g_kos_last_tskid;
 #endif
 
+#ifdef KOS_CFG_FAST_IRQ
+kos_dly_svc_t g_kos_dly_svc_fifo[KOS_DLY_SVC_FIFO_LEN];
+volatile kos_uint_t g_kos_dly_svc_fifo_cnt;
+volatile kos_uint_t g_kos_dly_svc_fifo_wp;
+volatile kos_uint_t g_kos_dly_svc_fifo_rp;
+#endif
+
 #ifdef __ARMCC_VERSION
 #pragma arm section zidata
 #endif
@@ -58,3 +65,8 @@ const kos_uint_t	g_kos_max_dtq = KOS_MAX_DTQ;
 const kos_uint_t	g_kos_max_pri = KOS_MAX_PRI;
 const kos_uint_t	g_kos_max_intno = KOS_MAX_INTNO;
 const kos_uint_t	g_kos_isr_stksz = KOS_ISR_STKSIZE;
+
+#ifdef KOS_CFG_FAST_IRQ
+const kos_uint_t	g_kos_dly_svc_fifo_len = KOS_DLY_SVC_FIFO_LEN;
+#endif
+

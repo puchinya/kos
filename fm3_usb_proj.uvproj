@@ -473,6 +473,16 @@
               <FileType>1</FileType>
               <FilePath>.\src\usb\usbcdc.c</FilePath>
             </File>
+            <File>
+              <FileName>usbhdrv.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\usb\usbhdrv.c</FilePath>
+            </File>
+            <File>
+              <FileName>usbdrvcmn.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\usb\usbdrvcmn.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

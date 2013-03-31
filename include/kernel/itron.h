@@ -13,6 +13,23 @@
 
 #include "kos.h"
 
+#define TMIN_TPRI		KOS_TMIN_TPRI
+#define TMAX_TPRI		KOS_TMAX_TPRI
+
+#define TMIN_TINTPRI	KOS_TMIN_TINTPRI
+#define TMAX_TINTPRI	KOS_TMAX_TINTPRI
+
+#define TMAX_ACTCNT		KOS_MAX_ACT_CNT
+#define TMAX_WUPCNT		KOS_MAX_WUP_CNT
+#define TMAX_SUSCNT		KOS_MAX_SUS_CNT
+
+#define TBIT_TEXPTN		KOS_TBIT_TEXPTN
+#define TBIT_FLGPTN		KOS_TBIT_FLGPTN
+#define TBIT_RDVPTN		KOS_TBIT_RDVPTN
+
+#define TIC_NUME		KOS_TIC_NUME
+#define TIC_DENO		KOS_TIC_DENO
+
 #define VP		kos_vp_t
 #define FP		kos_fp_t
 #define INT		kos_int_t
@@ -24,6 +41,7 @@
 #define STAT	kos_stat_t
 #define MODE	kos_mode_t
 #define PRI		kos_pri_t
+#define INTPRI	kos_intpri_t
 #define SIZE	kos_size_t
 #define TMO		kos_tmo_t
 #define VP_INT	kos_vp_int_t
@@ -202,5 +220,9 @@
 #define def_inh		kos_def_inh
 #define dis_inh		kos_dis_inh
 #define ena_inh		kos_ena_inh
+#define vchg_intpri	kos_vchg_intpri
+#define vget_intpri	kos_vget_intpri
+#define chg_imsk	kos_chg_imsk
+#define get_imsk	kos_get_imsk
 
 #endif

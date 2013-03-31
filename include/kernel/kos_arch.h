@@ -13,6 +13,11 @@
 
 #include <mcu.h>
 
+#define KOS_ARCH_CPULOCK_BASEPRI	0
+#define KOS_ARCH_NORMAL_BASEPRI		0
+#define KOS_ARCH_SYSTICK_PRI		254
+#define KOS_ARCH_PRENSV_PRI			255
+
 void kos_arch_setup_systick_handler(void);
 void kos_arch_idle(void);
 #define kos_arch_pend_sv()	\
@@ -24,6 +29,8 @@ do { \
 #define kos_arch_loc_cpu()	__disable_irq()
 #define kos_arch_unl_cpu()	__enable_irq()
 #define kos_arch_sns_loc()	(__get_PRIMASK() & 1)
+#define kos_arch_mask_pendsv()		__set_BASEPRI(KOS_ARCH_PRENSV_PRI)
+#define kos_arch_unmask_pendsv()	__set_BASEPRI(KOS_ARCH_NORMAL_BASEPRI)
 
 #define kos_arch_swi_sp(p_store_sp, load_sp) \
 do { \

@@ -197,8 +197,7 @@ static int ksh_exec_cmd(char *cmd, int cmd_len)
 static void ksh_tsk(void)
 {
 	int len;
-	s_cdc = usbcdc_create(0);
-	usbcdc_open(s_cdc);
+	s_cdc = usbcdc_open(0);
 	
 	ksh_getchar();
 	ksh_print("ksh version 1.0\r\n");
