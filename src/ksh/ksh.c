@@ -12,6 +12,8 @@
 #include <kos.h>
 #include <usbcdc.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 static usbcdc_t *s_cdc;
 static char s_line_buf[CFG_KSH_MAX_LINE_LEN+1];
@@ -102,15 +104,24 @@ static int ksh_parse_cmd_arg(char *cmd, char *argv[], int max_args)
 		argv[cnt] = prev;
 		cnt++;
 		if(last || cnt >= max_args) break;
+		prev = next;
 	}
 	return cnt;
 }
 
 static int ksh_cmd_ver(int argc, char *argv[]);
 static int ksh_cmd_help(int argc, char *argv[]);
+static int ksh_cmd_ex(int argc, char *argv[]);
+static int ksh_cmd_dx(int argc, char *argv[]);
 
 static const ksh_cmd s_cmd_tbl[] =
 {
+	{ "db", ksh_cmd_dx },
+	{ "dh", ksh_cmd_dx },
+	{ "dw", ksh_cmd_dx },
+	{ "eb", ksh_cmd_ex },
+	{ "eh", ksh_cmd_ex },
+	{ "ew", ksh_cmd_ex },
 	{ "ver", ksh_cmd_ver },
 	{ "help", ksh_cmd_help },
 	{ NULL, NULL }
@@ -168,6 +179,88 @@ static int ksh_cmd_help(int argc, char *argv[])
 		ksh_printl("\r\n", 2);
 		tbl++;
 	}
+	return 0;
+}
+
+static int ksh_cmd_dx(int argc, char *argv[])
+{
+	uint32_t adr, end_adr;
+	char *e;
+	char buf[16];
+	uint32_t x;
+	
+	if(argc < 2) {
+		ksh_print("usang: ");
+		ksh_print(argv[0]);
+		ksh_print(" address [endaddress]\r\n");
+		return 0;
+	}
+	
+	x = argv[0][1];
+	
+	adr = strtoul(argv[1], &e, 0);
+	if(argc == 2) {
+		end_adr = adr + 15;
+	} else {
+		end_adr = strtoul(argv[2], &e, 0);
+	}
+	for( ; adr <= end_adr; ) {
+		uint32_t e = adr + 16;
+		sprintf(buf, "%08X:", adr);
+		ksh_print(buf);
+		if(x == 'w') {
+			for( ; adr < e; adr += 4) {
+				uint32_t v = *(uint32_t *)adr;
+				
+				sprintf(buf, " %08X", v);
+				ksh_print(buf);
+			}
+		} else if(x == 'h') {
+			for( ; adr < e; adr += 2) {
+				uint32_t v = *(uint16_t *)adr;
+				
+				sprintf(buf, " %04X", v);
+				ksh_print(buf);
+			}
+		} else {
+			for( ; adr < e; adr += 1) {
+				uint32_t v = *(uint8_t *)adr;
+				
+				sprintf(buf, " %02X", v);
+				ksh_print(buf);
+			}
+		}
+		ksh_print("\r\n");
+	}
+	return 0;
+}
+
+static int ksh_cmd_ex(int argc, char *argv[])
+{
+	uint32_t adr, data;
+	char *e;
+	uint32_t x;
+	
+	if(argc < 3) {
+		ksh_print("usang: ");
+		ksh_print(argv[0]);
+		ksh_print(" address data\r\n");
+		return 0;
+	}
+	
+	x = argv[0][1];
+	
+	adr = strtoul(argv[1], &e, 0);
+	data = strtoul(argv[2], &e, 0);
+	
+	if(x == 'w') {
+		*(uint32_t *)adr = data;
+	} else if(x == 'h') {
+		*(uint16_t *)adr = (uint16_t)data;
+	} else {
+		*(uint8_t *)adr = (uint8_t)data;
+	}
+	
 	return 0;
 }
 
