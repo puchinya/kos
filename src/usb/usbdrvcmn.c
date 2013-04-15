@@ -221,7 +221,7 @@ static void usbdrv_local_clockon_impl(void)
 	
 	/* 割り込みは使わない */
 	
-	/* UPLLEN=0 を設定 */
+	/* UPLLEN=1 を設定 */
 	FM3_USBETHERNETCLK->UPCR1_f.UPLLEN = 1;
 	
 	/* UPRDY=1 になるまで待機 */

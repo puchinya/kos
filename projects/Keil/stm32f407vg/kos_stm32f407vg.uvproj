@@ -7,7 +7,7 @@
 
   <Targets>
     <Target>
-      <TargetName>Target 1</TargetName>
+      <TargetName>Debug</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <TargetOption>
@@ -138,7 +138,7 @@
             <RestoreToolbox>1</RestoreToolbox>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
-          <TargetSelection>1</TargetSelection>
+          <TargetSelection>0</TargetSelection>
           <SimDlls>
             <CpuDll></CpuDll>
             <CpuDllArguments></CpuDllArguments>
@@ -279,17 +279,17 @@
                 <Size>0x0</Size>
               </XRAM>
               <OCR_RVCT1>
-                <Type>0</Type>
+                <Type>1</Type>
                 <StartAddress>0x0</StartAddress>
                 <Size>0x0</Size>
               </OCR_RVCT1>
               <OCR_RVCT2>
-                <Type>0</Type>
+                <Type>1</Type>
                 <StartAddress>0x0</StartAddress>
                 <Size>0x0</Size>
               </OCR_RVCT2>
               <OCR_RVCT3>
-                <Type>0</Type>
+                <Type>1</Type>
                 <StartAddress>0x0</StartAddress>
                 <Size>0x0</Size>
               </OCR_RVCT3>
@@ -299,7 +299,7 @@
                 <Size>0x100000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
-                <Type>0</Type>
+                <Type>1</Type>
                 <StartAddress>0x0</StartAddress>
                 <Size>0x0</Size>
               </OCR_RVCT5>
@@ -348,7 +348,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath></IncludePath>
+              <IncludePath>..\..\..\include\kernel;..\..\..\target\stmicro\stm32f4xx\inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -386,12 +386,87 @@
       </TargetOption>
       <Groups>
         <Group>
-          <GroupName>Source Group 1</GroupName>
+          <GroupName>user</GroupName>
           <Files>
+            <File>
+              <FileName>usr_init.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\usr_init.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>kernel</GroupName>
+          <Files>
+            <File>
+              <FileName>kos.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\kernel\kos.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_arch.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\kernel\kos_arch.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_cyc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\kernel\kos_cyc.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_dtq.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\kernel\kos_dtq.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_flg.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\kernel\kos_flg.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_inh.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\kernel\kos_inh.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_sem.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\kernel\kos_sem.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_sys.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\kernel\kos_sys.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_tim.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\kernel\kos_tim.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_tsk.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\kernel\kos_tsk.c</FilePath>
+            </File>
+            <File>
+              <FileName>kos_vars.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\kernel\kos_vars.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>target</GroupName>
+          <Files>
+            <File>
+              <FileName>system_stm32f4xx.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\target\stmicro\stm32f4xx\src\system_stm32f4xx.c</FilePath>
+            </File>
             <File>
               <FileName>startup_stm32f4xx.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\startup_stm32f4xx.s</FilePath>
+              <FilePath>..\..\..\target\stmicro\stm32f4xx\src\asm\arm\startup_stm32f4xx.s</FilePath>
             </File>
           </Files>
         </Group>

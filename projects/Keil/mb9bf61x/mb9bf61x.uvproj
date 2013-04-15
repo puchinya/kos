@@ -44,10 +44,10 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\</OutputDirectory>
-          <OutputName>fm3_usb_proj</OutputName>
+          <OutputName>mb9bf61x</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
-          <CreateHexFile>1</CreateHexFile>
+          <CreateHexFile>0</CreateHexFile>
           <DebugInformation>1</DebugInformation>
           <BrowseInformation>1</BrowseInformation>
           <ListingPath>.\</ListingPath>
@@ -138,7 +138,7 @@
             <RestoreToolbox>1</RestoreToolbox>
           </Target>
           <RunDebugAfterBuild>0</RunDebugAfterBuild>
-          <TargetSelection>7</TargetSelection>
+          <TargetSelection>13</TargetSelection>
           <SimDlls>
             <CpuDll></CpuDll>
             <CpuDllArguments></CpuDllArguments>
@@ -152,7 +152,7 @@
             <PeripheralDll></PeripheralDll>
             <PeripheralDllArguments></PeripheralDllArguments>
             <InitializationFile></InitializationFile>
-            <Driver>Segger\JL2CM3.dll</Driver>
+            <Driver>STLink\ST-LINKIII-KEIL_SWO.dll</Driver>
           </TargetDlls>
         </DebugOption>
         <Utilities>
@@ -162,9 +162,9 @@
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>0</UpdateFlashBeforeDebugging>
             <Capability>1</Capability>
-            <DriverSelection>4099</DriverSelection>
+            <DriverSelection>4104</DriverSelection>
           </Flash1>
-          <Flash2>Segger\JL2CM3.dll</Flash2>
+          <Flash2>STLink\ST-LINKIII-KEIL_SWO.dll</Flash2>
           <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
         </Utilities>
@@ -348,7 +348,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>.\include;.\include\kernel;.\include\target;.\include\usb;.\include\ksh</IncludePath>
+              <IncludePath>..\..\..\include;..\..\..\include\kernel;..\..\..\include\ksh;..\..\..\include\usb;..\..\..\target\fujitu\mb9bf61x\inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -391,57 +391,57 @@
             <File>
               <FileName>kos.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kernel\kos.c</FilePath>
+              <FilePath>..\..\..\src\kernel\kos.c</FilePath>
             </File>
             <File>
               <FileName>kos_arch.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kernel\kos_arch.c</FilePath>
+              <FilePath>..\..\..\src\kernel\kos_arch.c</FilePath>
             </File>
             <File>
               <FileName>kos_cyc.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kernel\kos_cyc.c</FilePath>
+              <FilePath>..\..\..\src\kernel\kos_cyc.c</FilePath>
             </File>
             <File>
               <FileName>kos_dtq.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kernel\kos_dtq.c</FilePath>
+              <FilePath>..\..\..\src\kernel\kos_dtq.c</FilePath>
             </File>
             <File>
               <FileName>kos_flg.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kernel\kos_flg.c</FilePath>
+              <FilePath>..\..\..\src\kernel\kos_flg.c</FilePath>
             </File>
             <File>
               <FileName>kos_inh.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kernel\kos_inh.c</FilePath>
+              <FilePath>..\..\..\src\kernel\kos_inh.c</FilePath>
             </File>
             <File>
               <FileName>kos_sem.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kernel\kos_sem.c</FilePath>
+              <FilePath>..\..\..\src\kernel\kos_sem.c</FilePath>
             </File>
             <File>
               <FileName>kos_sys.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kernel\kos_sys.c</FilePath>
+              <FilePath>..\..\..\src\kernel\kos_sys.c</FilePath>
             </File>
             <File>
               <FileName>kos_tim.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kernel\kos_tim.c</FilePath>
+              <FilePath>..\..\..\src\kernel\kos_tim.c</FilePath>
             </File>
             <File>
               <FileName>kos_tsk.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kernel\kos_tsk.c</FilePath>
+              <FilePath>..\..\..\src\kernel\kos_tsk.c</FilePath>
             </File>
             <File>
               <FileName>kos_vars.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\kernel\kos_vars.c</FilePath>
+              <FilePath>..\..\..\src\kernel\kos_vars.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -451,12 +451,12 @@
             <File>
               <FileName>system_mb9bf61x.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\target\system_mb9bf61x.c</FilePath>
+              <FilePath>..\..\..\target\fujitu\mb9bf61x\src\system_mb9bf61x.c</FilePath>
             </File>
             <File>
               <FileName>startup_mb9bf61x.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\src\target\startup_mb9bf61x.s</FilePath>
+              <FilePath>..\..\..\target\fujitu\mb9bf61x\src\arm\startup_mb9bf61x.s</FilePath>
             </File>
           </Files>
         </Group>
@@ -464,24 +464,24 @@
           <GroupName>usb</GroupName>
           <Files>
             <File>
-              <FileName>usbdrv.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\usb\usbdrv.c</FilePath>
-            </File>
-            <File>
               <FileName>usbcdc.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\usb\usbcdc.c</FilePath>
+              <FilePath>..\..\..\src\usb\usbcdc.c</FilePath>
             </File>
             <File>
-              <FileName>usbhdrv.c</FileName>
+              <FileName>usbdrv.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\usb\usbhdrv.c</FilePath>
+              <FilePath>..\..\..\src\usb\usbdrv.c</FilePath>
             </File>
             <File>
               <FileName>usbdrvcmn.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\usb\usbdrvcmn.c</FilePath>
+              <FilePath>..\..\..\src\usb\usbdrvcmn.c</FilePath>
+            </File>
+            <File>
+              <FileName>usbhdrv.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\src\usb\usbhdrv.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -491,7 +491,7 @@
             <File>
               <FileName>ksh.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\ksh\ksh.c</FilePath>
+              <FilePath>..\..\..\src\ksh\ksh.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -501,22 +501,22 @@
             <File>
               <FileName>usr_init.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\usr_init.c</FilePath>
+              <FilePath>.\usr_init.c</FilePath>
             </File>
             <File>
               <FileName>led_drv.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\led_drv.c</FilePath>
+              <FilePath>.\led_drv.c</FilePath>
             </File>
             <File>
               <FileName>ksh_usr_cmd.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\ksh_usr_cmd.c</FilePath>
+              <FilePath>.\ksh_usr_cmd.c</FilePath>
             </File>
             <File>
               <FileName>clib_itm_stub.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\src\clib_itm_stub.c</FilePath>
+              <FilePath>.\clib_itm_stub.c</FilePath>
             </File>
           </Files>
         </Group>

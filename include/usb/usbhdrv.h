@@ -29,6 +29,8 @@ usbdrv_er_t usbhdrv_close(usbhdrv_dev_t *dev);
 
 usbdrv_er_t usbhdrv_wait_for_device(usbhdrv_dev_t *dev);
 
+usbdrv_er_t usbhdrv_send_sof_token(usbhdrv_dev_t *dev);
+
 usbdrv_er_t usbhdrv_setup_transaction(usbhdrv_dev_t *dev,
 	const usb_device_request_t *device_request);
 

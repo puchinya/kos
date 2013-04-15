@@ -120,22 +120,23 @@ static void usbhdrv_setup_regs(usbhdrv_dev_t *dev)
 	
 	if(dev->port == 0) {
 	} else {
-		/* UDM1とUDMP1ピンをUSBとして使う */
+		/* UDM1とUDP1をUSB1として使う */
 		FM3_GPIO->SPSR_f.USB1C = 1;
 		FM3_GPIO->PFR8_f.P2 = 1;
 		FM3_GPIO->PFR8_f.P3 = 1;
-		
-		//FM3_GPIO->DDR6_f.P2 = 1;
-		//FM3_GPIO->PDOR6_f.P2 = 1;
 	}
 	
 	/* USBファンクションをリセット */
 	regs->UDCC_f.RST = 1;
 	
 	/* USBホストとして使う */
-	regs->UDCC_f.HCONX = 1;
+	//regs->UDCC_f.HCONX = 1;
 	regs->HCNT0_f.HOST = 1;
 	while(regs->HCNT0_f.HOST == 0);
+	
+	/* EP1CとEP2Cの設定 */
+	regs->EP1C = 0xC440;
+	regs->EP2C = 0xD440;
 	
 	/* 全USBホスト割り込みを無効化 */
 	regs->HCNT1_f.SOFSTEP = 0;
@@ -164,7 +165,6 @@ usbdrv_er_t usbhdrv_wait_for_device(usbhdrv_dev_t *dev)
 	tmode = regs->HSTATE_f.TMODE;
 	
 	regs->HSTATE_f.CLKSEL = tmode;
-	dummy = regs->HSTATE;
 	
 	/* 一致するまで待機 */
 	while(regs->HSTATE_f.CLKSEL != tmode);
@@ -179,6 +179,7 @@ usbdrv_er_t usbhdrv_wait_for_device(usbhdrv_dev_t *dev)
 	while(regs->HIRQ_f.URIRQ == 0) {
 		kos_dly_tsk(1);
 	}
+	
 	while(regs->HIRQ_f.CNNIRQ == 0) {
 		kos_dly_tsk(1);
 	}
@@ -192,10 +193,6 @@ usbdrv_er_t usbhdrv_wait_for_device(usbhdrv_dev_t *dev)
 	/* 一致するまで待機 */
 	while(regs->HSTATE_f.CLKSEL != tmode);
 	
-	/* エンドポイントの設定 */
-	regs->EP1C = 0xC440;
-	regs->EP2C = 0xD440;
-	
 	/* リセットを解除 */
 	regs->UDCC_f.RST = 0;
 	
@@ -206,12 +203,26 @@ usbdrv_er_t usbhdrv_wait_for_device(usbhdrv_dev_t *dev)
 	
 	regs->HFCOMP = 0;
 	regs->HRTIMER = 0xFFFF;
-	regs->HRTIMER1 = 0x3;
+	regs->HRTIMER2 = 0x3;
 	
 	/* ホストアドレスを0に設定 */
 	regs->HADR = 0;
 	
 	regs->HEOF = 0x2C9;
+	
+	return USBDRV_E_OK;
+}
+
+usbdrv_er_t usbhdrv_send_sof_token(usbhdrv_dev_t *dev)
+{
+	FM3_USB_TypeDef *regs = dev->regs;
+	
+	regs->HTOKEN = 0x40;
+	
+	while(regs->HIRQ_f.CMPIRQ == 0);
+	
+	if(regs->HERR_f.LSTOF)
+		return USBDRV_E_USB_LSTSOF;
 	
 	return USBDRV_E_OK;
 }
@@ -276,16 +287,9 @@ usbdrv_er_t usbhdrv_end_in_transaction(usbhdrv_dev_t *dev,
 usbdrv_er_t usbhdrv_in_transaction(usbhdrv_dev_t *dev,
 	uint32_t ep_no, uint16_t *buf, uint32_t buf_size)
 {
-	//usbdrv_abstract_ep_t *ep;
 	FM3_USB_TypeDef *regs = dev->regs;
 	uint32_t i = 0;
 	uint32_t recv_size, read_size;
-	
-	//if(ep_no == 0) {
-	//	ep = (usbdrv_abstract_ep_t *)&dev->ep0i;
-	//} else {
-	//	ep = (usbdrv_abstract_ep_t *)&dev->ep[ep_no - 1];
-	//}
 	
 	for(;;) {
 		if(dev->trans_size == 0) {

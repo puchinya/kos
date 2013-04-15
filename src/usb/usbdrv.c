@@ -326,17 +326,19 @@ void USB1F_Handler(void)
 
 static void usbdrv_setup_pins(usbdrv_dev_t *dev)
 {
-	/* UDM0とUDMP0ピンをUSBとして使う */
+	/* UDM0とUDP0ピンをUSB0として使う */
 	FM3_GPIO->SPSR_f.USB0C = 1;
 	FM3_GPIO->PFR8_f.P0 = 1;
 	FM3_GPIO->PFR8_f.P1 = 1;
 	
-	/* D+のプルアップ抵抗制御出力にUHCONX(P61)を使う */
+	/* D+のプルアップ抵抗制御出力にUHCONX0を使う(P61) */
 	FM3_GPIO->EPFR00_f.USBP0E = 1;
 	FM3_GPIO->PFR6_f.P1 = 1;
 	
-	/* EINT_ch15の入力端子にINT15_1(P60)を使う */
+	/* EINT_ch15の入力端子にINT15_1を使う(P60) */
 	FM3_GPIO->EPFR06_f.EINT15S1 = 1;
+	FM3_GPIO->EPFR06_f.EINT15S0 = 0;
+	FM3_GPIO->PFR6_f.P0 = 1;
 	
 	/* USBファンクションとして使う */
 	dev->regs->HCNT0_f.HOST = 0;
