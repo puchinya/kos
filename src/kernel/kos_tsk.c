@@ -355,8 +355,6 @@ void kos_ext_tsk(void)
 	if(actcnt > 0) {
 		actcnt--;
 		tcb->st.actcnt = actcnt;
-	}
-	if(actcnt > 0) {
 		kos_local_act_tsk_impl_nolock(tcb, KOS_FALSE);
 	} else {
 		kos_force_schedule_nolock();
@@ -367,6 +365,26 @@ end:
 
 void kos_exd_tsk(void)
 {
+	kos_tcb_t *tcb;
+	kos_uint_t actcnt;
+	
+	kos_lock;
+	
+	tcb = g_kos_cur_tcb;
+	
+	tcb->st.tskstat = KOS_TTS_DMT;
+	kos_dbgprintf("tsk:%04X DMT\r\n", tcb->id);
+	
+	/* 登録解除 */
+	g_kos_tcb[tcb->id - 1] = KOS_NULL;
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+	kos_list_insert_prev(&g_kos_tcb_unused_list, (kos_list_t *)tcb);
+#endif
+	
+	kos_force_schedule_nolock();
+	
+end:
+	kos_unlock;
 }
 
 kos_er_t kos_ter_tsk(kos_id_t tskid)
