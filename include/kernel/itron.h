@@ -45,6 +45,7 @@
 #define SIZE	kos_size_t
 #define TMO		kos_tmo_t
 #define VP_INT	kos_vp_int_t
+#define ER		kos_er_t
 #define ER_BOOL	kos_er_bool_t
 #define ER_ID	kos_er_id_t
 #define ER_UINT	kos_er_uint_t
