@@ -9,12 +9,12 @@
 
   <project>
     <PathAndName>.\stm32f407VG\kos_stm32f407vg.uvproj</PathAndName>
+    <NodeIsActive>1</NodeIsActive>
     <NodeIsExpanded>1</NodeIsExpanded>
   </project>
 
   <project>
     <PathAndName>.\mb9bf61x\mb9bf61x.uvproj</PathAndName>
-    <NodeIsActive>1</NodeIsActive>
     <NodeIsExpanded>1</NodeIsExpanded>
   </project>
 

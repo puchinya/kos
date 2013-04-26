@@ -348,7 +348,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\..\include;..\..\..\include\kernel;..\..\..\include\ksh;..\..\..\include\usb;..\..\..\target\fujitu\mb9bf61x\inc</IncludePath>
+              <IncludePath>..\..\..\include;..\..\..\include\kernel;..\..\..\include\ksh;..\..\..\include\usb;..\..\..\target\fujitu\mb9bf61x\inc;.\</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -517,6 +517,11 @@
               <FileName>clib_itm_stub.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\clib_itm_stub.c</FilePath>
+            </File>
+            <File>
+              <FileName>target_inthdr.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\target_inthdr.c</FilePath>
             </File>
           </Files>
         </Group>
