@@ -192,7 +192,7 @@ void kos_process_cyc(void);
 void kos_usr_init(void);
 
 /* debug message */
-#define KOS_ENA_DBG_MSG
+//#define KOS_ENA_DBG_MSG
 #ifdef KOS_ENA_DBG_MSG
 #include <stdio.h>
 #define kos_dbgprintf(fmt, ...) printf(fmt, __VA_ARGS__)
