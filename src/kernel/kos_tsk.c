@@ -22,11 +22,22 @@ static KOS_INLINE kos_tcb_t *kos_get_tcb(kos_id_t tskid)
 void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx);
 
 #ifdef KOS_DISPATCHER_TYPE1
+#ifdef __GNUC__
+uint32_t __get_R4(void)
+{
+	uint32_t result;
+
+	__ASM volatile ("MOV %0, R4" : "=r" (result) );
+
+	return result;
+}
+#else
 __asm uint32_t __get_R4(void)
 {
 	MOV	R0, R4
 	BX	LR
 }
+#endif
 #endif
 
 #ifdef KOS_DISPATCHER_TYPE1

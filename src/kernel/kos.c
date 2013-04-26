@@ -20,6 +20,9 @@ int kos_find_null(void **a, int len)
 	return -1;
 }
 
+#ifdef __GNUC__
+extern void kos_arch_swi_ctx(kos_tcb_t *cur_tcb, kos_tcb_t *next_tcb);
+#else
 __asm void kos_arch_swi_ctx(kos_tcb_t *cur_tcb, kos_tcb_t *next_tcb)
 {
 	PUSH	{R4-R11,LR}
@@ -29,6 +32,7 @@ __asm void kos_arch_swi_ctx(kos_tcb_t *cur_tcb, kos_tcb_t *next_tcb)
 	POP		{R4-R11,LR}
 	BX		LR
 }
+#endif
 
 void kos_schedule_impl_nolock(void)
 {
@@ -305,6 +309,15 @@ static void kos_init_vars(void)
 #endif
 }
 
+#ifdef __GNUC__
+void kos_init_regs(void)
+{
+	uint32_t msp = __get_MSP();
+	__set_PSP(msp);
+	__set_MSP((uint32_t)g_kos_isr_stk + g_kos_isr_stksz);
+	__set_CONTROL(2);
+}
+#else
 __asm void kos_init_regs(void)
 {
 	extern g_kos_isr_stk
@@ -325,6 +338,7 @@ __asm void kos_init_regs(void)
 	
 	BX	LR
 }
+#endif
 
 void kos_init(void)
 {

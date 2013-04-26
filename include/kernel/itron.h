@@ -219,8 +219,8 @@
 #define sns_dqn		kos_sns_dqn
 
 #define def_inh		kos_def_inh
-#define dis_inh		kos_dis_inh
-#define ena_inh		kos_ena_inh
+#define dis_int		kos_dis_int
+#define ena_int		kos_ena_int
 #define vchg_intpri	kos_vchg_intpri
 #define vget_intpri	kos_vget_intpri
 #define chg_imsk	kos_chg_imsk

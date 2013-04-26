@@ -38,4 +38,7 @@ do { \
 	__set_PSP((uint32_t)(load_sp)); \
 } while(0);
 
+/* execute kernel interrupt handler. */
+void kos_arch_inthdr(void);
+
 #endif

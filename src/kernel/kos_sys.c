@@ -130,6 +130,12 @@ kos_er_t kos_ena_dsp(void)
 	return KOS_E_OK;
 }
 
+#ifdef __GNUC__
+kos_bool_t kos_sns_ctx(void)
+{
+	return __get_IPSR() == 0 ? 0 : 1;
+}
+#else
 __asm kos_bool_t kos_sns_ctx(void)
 {
 	MRS	R0, IPSR
@@ -137,6 +143,7 @@ __asm kos_bool_t kos_sns_ctx(void)
 	MOVNE R0, #1
 	BX LR
 }
+#endif
 
 kos_bool_t kos_sns_dsp(void)
 {

@@ -20,11 +20,20 @@ int main(void)
 	return 0;
 }
 
+#ifdef __GNUC__
+void kos_arch_idle(void)
+{
+	for(;;) {
+		__NOP();
+	}
+}
+#else
 __asm void kos_arch_idle(void)
 {
 LOOP
 	B	LOOP
 }
+#endif
 
 void kos_arch_setup_systick_handler(void)
 {
@@ -65,12 +74,19 @@ kos_er_t kos_iunl_cpu(void)
 	return KOS_E_OK;
 }
 
+#ifdef __GNUC__
+kos_bool_t kos_sns_loc(void)
+{
+	return (kos_bool_t)(__get_PRIMASK() & 1);
+}
+#else
 __asm kos_bool_t kos_sns_loc(void)
 {
 	MRS	R0, PRIMASK
 	AND R0, #1
 	BX	LR
 }
+#endif
 
 /*-----------------------------------------------------------------------------
 	archtecuture inplement API
@@ -159,6 +175,7 @@ void SysTick_Handler(void)
 }
 
 #ifdef KOS_DISPATCHER_TYPE1
+#ifndef __GNUC__
 uint32_t g_kos_pendsv_ret_pc;
 
 __asm void pendsv_after_proc(void)
@@ -212,6 +229,7 @@ __asm void PendSV_Handler(void)
 	BX			LR
 	NOP
 }
+#endif
 
 #else
 /* do schedule */
