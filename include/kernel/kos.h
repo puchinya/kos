@@ -276,6 +276,7 @@ kos_er_t kos_get_tim(kos_systim_t *p_systim) __attribute__((__nonnull__(1)));
 kos_er_t kos_isig_tim(void); /* 外部から呼ぶ必要なし */
 
 /* 時間管理機能/周期ハンドラ */
+#ifdef KOS_CFG_SPT_CYC
 
 #define KOS_TA_STA		0x02
 #define KOS_TA_PHS		0x04
@@ -301,6 +302,8 @@ kos_er_t kos_del_cyc(kos_id_t cycid);
 kos_er_t kos_sta_cyc(kos_id_t cycid);
 kos_er_t kos_stp_cyc(kos_id_t cycid);
 kos_er_t kos_ref_cyc(kos_id_t cycid, kos_rcyc_t *pk_rcyc);
+
+#endif
 
 /* システム状態管理機能 */
 kos_er_t kos_rot_rdq(kos_pri_t tskpri);

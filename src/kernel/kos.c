@@ -11,7 +11,8 @@
 #include "kos_local.h"
 #include <string.h>
 
-int kos_find_null(void **a, int len)
+#ifndef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+kos_int_t kos_find_null(void **a, int len)
 {
 	int i;
 	for(i = 0; i < len; i++) {
@@ -19,6 +20,7 @@ int kos_find_null(void **a, int len)
 	}
 	return -1;
 }
+#endif
 
 #ifdef __GNUC__
 extern void kos_arch_swi_ctx(kos_tcb_t *cur_tcb, kos_tcb_t *next_tcb);
@@ -301,6 +303,22 @@ static void kos_init_vars(void)
 #ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
 	kos_list_init(&g_kos_tcb_unused_list);
 	g_kos_last_tskid = 0;
+#ifdef KOS_CFG_SPT_SEM
+	kos_list_init(&g_kos_sem_cb_unused_list);
+	g_kos_last_semid = 0;
+#endif
+#ifdef KOS_CFG_SPT_FLG
+	kos_list_init(&g_kos_flg_cb_unused_list);
+	g_kos_last_flgid = 0;
+#endif
+#ifdef KOS_CFG_SPT_DTQ
+	kos_list_init(&g_kos_dtq_cb_unused_list);
+	g_kos_last_dtqid = 0;
+#endif
+#ifdef KOS_CFG_SPT_CYC
+	kos_list_init(&g_kos_cyc_cb_unused_list);
+	g_kos_last_cycid = 0;
+#endif
 #endif
 #ifdef KOS_CFG_FAST_IRQ
 	g_kos_dly_svc_fifo_cnt = 0;

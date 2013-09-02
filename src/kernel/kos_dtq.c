@@ -12,10 +12,8 @@
 
 #ifdef KOS_CFG_SPT_DTQ
 
-static KOS_INLINE kos_dtq_cb_t *kos_get_dtq_cb(kos_id_t dtqid)
-{
-	return g_kos_dtq_cb[dtqid - 1];
-}
+#define CB_TO_INDEX(cb)			(((uintptr_t)cb - (uintptr_t)g_kos_dtq_cb) / sizeof(kos_dtq_cb_t))
+#define kos_get_dtq_cb(dtqid)	(g_kos_dtq_cb[(dtqid) - 1])
 
 kos_er_id_t kos_cre_dtq(const kos_cdtq_t *pk_cdtq)
 {
@@ -25,11 +23,31 @@ kos_er_id_t kos_cre_dtq(const kos_cdtq_t *pk_cdtq)
 	
 	kos_lock;
 	
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+	{
+		kos_id_t last_id = g_kos_last_dtqid;
+
+		if(last_id < g_kos_max_dtq) {
+			empty_index = last_id;
+			g_kos_last_dtqid = last_id + 1;
+		} else {
+			if(kos_list_empty(&g_kos_dtq_cb_unused_list)) {
+				er_id = KOS_E_NOID;
+				goto end;
+			} else {
+				kos_dtq_cb_t *unused_cb = (kos_dtq_cb_t *)g_kos_dtq_cb_unused_list.next;
+				empty_index = CB_TO_INDEX(unused_cb);
+				kos_list_remove((kos_list_t *)unused_cb);
+			}
+		}
+	}
+#else
 	empty_index = kos_find_null((void **)g_kos_dtq_cb, g_kos_max_dtq);
 	if(empty_index < 0) {
 		er_id = KOS_E_NOID;
 		goto end;
 	}
+#endif
 	
 	cb = &g_kos_dtq_cb_inst[empty_index];
 	g_kos_dtq_cb[empty_index] = cb;
@@ -71,9 +89,12 @@ kos_er_t kos_del_dtq(kos_id_t dtqid)
 	/* 待ち行列にいるタスクの待ちを解除 */
 	kos_cancel_wait_all_for_delapi_nolock(&cb->r_wait_tsk_list);
 	kos_cancel_wait_all_for_delapi_nolock(&cb->s_wait_tsk_list);
-	
-	/* ID=>CB変換をクリア */
+
+	/* 登録解除 */
 	g_kos_dtq_cb[dtqid - 1] = KOS_NULL;
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+	kos_list_insert_prev(&g_kos_dtq_cb_unused_list, (kos_list_t *)cb);
+#endif
 	
 	/* スケジューラー起動 */
 	kos_schedule_nolock();

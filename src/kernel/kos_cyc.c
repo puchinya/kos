@@ -14,13 +14,12 @@
 /*-----------------------------------------------------------------------------
 	時間管理機能/周期ハンドラ
 -----------------------------------------------------------------------------*/
+#ifdef KOS_CFG_SPT_CYC
 
 static kos_list_t s_cyc_list;				/* アクティブな周期ハンドラのリスト */
 
-static KOS_INLINE kos_cyc_cb_t *kos_get_cyc_cb(kos_id_t cycid)
-{
-	return g_kos_cyc_cb[cycid-1];
-}
+#define CB_TO_INDEX(cb)			(((uintptr_t)cb - (uintptr_t)g_kos_cyc_cb) / sizeof(kos_cyc_cb_t))
+#define kos_get_cyc_cb(cycid)	(g_kos_cyc_cb[(cycid) - 1])
 
 void kos_init_cyc(void)
 {
@@ -55,13 +54,33 @@ static void kos_sta_cyc_nolock(kos_cyc_cb_t *cb)
 kos_er_t kos_cre_cyc(const kos_ccyc_t *pk_ccyc)
 {
 	kos_cyc_cb_t *cb;
-	int empty_index;
+	kos_int_t empty_index;
 	kos_er_id_t er_id;
 	kos_atr_t atr;
 	
 	kos_lock;
 	
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+	{
+		kos_id_t last_id = g_kos_last_cycid;
+
+		if(last_id < g_kos_max_cyc) {
+			empty_index = last_id;
+			g_kos_last_cycid = last_id + 1;
+		} else {
+			if(kos_list_empty(&g_kos_cyc_cb_unused_list)) {
+				er_id = KOS_E_NOID;
+				goto end;
+			} else {
+				kos_cyc_cb_t *unused_cb = (kos_cyc_cb_t *)g_kos_cyc_cb_unused_list.next;
+				empty_index = CB_TO_INDEX(unused_cb);
+				kos_list_remove((kos_list_t *)unused_cb);
+			}
+		}
+	}
+#else
 	empty_index = kos_find_null((void **)g_kos_cyc_cb, g_kos_max_cyc);
+#endif
 	if(empty_index < 0) {
 		er_id = KOS_E_NOID;
 		goto end;
@@ -112,9 +131,12 @@ kos_er_t kos_del_cyc(kos_id_t cycid)
 	if(cb->st.cycstat == KOS_TCYC_STA) {
 		kos_list_remove(&cb->list);
 	}
-	
-	/* ID=>CB変換をクリア */
+
+	/* 登録解除 */
 	g_kos_cyc_cb[cycid - 1] = KOS_NULL;
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+	kos_list_insert_prev(&g_kos_cyc_cb_unused_list, (kos_list_t *)cb);
+#endif
 	
 end:
 	kos_unlock;
@@ -208,3 +230,4 @@ end:
 	
 	return er;
 }
+#endif

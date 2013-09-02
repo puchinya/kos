@@ -41,6 +41,22 @@ kos_systim_t	g_kos_systim;
 #ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
 kos_list_t		g_kos_tcb_unused_list;
 kos_id_t		g_kos_last_tskid;
+#ifdef KOS_CFG_SPT_SEM
+kos_list_t		g_kos_sem_cb_unused_list;
+kos_id_t		g_kos_last_semid;
+#endif
+#ifdef KOS_CFG_SPT_FLG
+kos_list_t		g_kos_flg_cb_unused_list;
+kos_id_t		g_kos_last_flgid;
+#endif
+#ifdef KOS_CFG_SPT_DTQ
+kos_list_t		g_kos_dtq_cb_unused_list;
+kos_id_t		g_kos_last_dtqid;
+#endif
+#ifdef KOS_CFG_SPT_CYC
+kos_list_t		g_kos_cyc_cb_unused_list;
+kos_id_t		g_kos_last_cycid;
+#endif
 #endif
 
 #ifdef KOS_CFG_FAST_IRQ

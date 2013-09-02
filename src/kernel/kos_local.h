@@ -108,6 +108,22 @@ extern kos_tcb_t	g_kos_idle_tcb_inst;
 #ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
 extern kos_list_t	g_kos_tcb_unused_list;
 extern kos_id_t		g_kos_last_tskid;
+#ifdef KOS_CFG_SPT_SEM
+extern kos_list_t	g_kos_sem_cb_unused_list;
+extern kos_id_t		g_kos_last_semid;
+#endif
+#ifdef KOS_CFG_SPT_FLG
+extern kos_list_t	g_kos_flg_cb_unused_list;
+extern kos_id_t		g_kos_last_flgid;
+#endif
+#ifdef KOS_CFG_SPT_DTQ
+extern kos_list_t	g_kos_dtq_cb_unused_list;
+extern kos_id_t		g_kos_last_dtqid;
+#endif
+#ifdef KOS_CFG_SPT_CYC
+extern kos_list_t	g_kos_cyc_cb_unused_list;
+extern kos_id_t		g_kos_last_cycid;
+#endif
 #endif
 
 extern kos_uint_t	g_kos_isr_stk[];
@@ -170,7 +186,9 @@ static KOS_INLINE int kos_list_empty(kos_list_t *l)
 void kos_init(void);
 void kos_start_kernel(void);
 
-int kos_find_null(void **a, int len);
+#ifndef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+kos_int_t kos_find_null(void **a, int len);
+#endif
 
 void kos_process_tmo(void);
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb);

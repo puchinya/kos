@@ -14,10 +14,7 @@
 /*-----------------------------------------------------------------------------
 	タスク管理機能
 -----------------------------------------------------------------------------*/
-static KOS_INLINE kos_tcb_t *kos_get_tcb(kos_id_t tskid)
-{
-	return g_kos_tcb[tskid-1];
-}
+#define kos_get_tcb(tskid)	(g_kos_tcb[(tskid)-1])
 
 void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx);
 
@@ -98,23 +95,27 @@ void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx)
 kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 {
 	kos_tcb_t *tcb;
-	int empty_index;
+	kos_int_t empty_index;
 	kos_er_id_t er_id;
 	
 	kos_lock;
 	
 #ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
-	if(g_kos_last_tskid < g_kos_max_tsk) {
-		empty_index = g_kos_last_tskid;
-		g_kos_last_tskid = g_kos_last_tskid + 1;
-	} else {
-		if(kos_list_empty(&g_kos_tcb_unused_list)) {
-			er_id = KOS_E_NOID;
-			goto end;
+	{
+		kos_id_t last_id = g_kos_last_tskid;
+
+		if(last_id < g_kos_max_tsk) {
+			empty_index = last_id;
+			g_kos_last_tskid = last_id + 1;
 		} else {
-			kos_tcb_t *unused_tcb = (kos_tcb_t *)g_kos_tcb_unused_list.next;
-			empty_index = unused_tcb->id - 1;
-			kos_list_remove((kos_list_t *)unused_tcb);
+			if(kos_list_empty(&g_kos_tcb_unused_list)) {
+				er_id = KOS_E_NOID;
+				goto end;
+			} else {
+				kos_tcb_t *unused_tcb = (kos_tcb_t *)g_kos_tcb_unused_list.next;
+				empty_index = unused_tcb->id - 1;
+				kos_list_remove((kos_list_t *)unused_tcb);
+			}
 		}
 	}
 #else
@@ -377,7 +378,6 @@ end:
 void kos_exd_tsk(void)
 {
 	kos_tcb_t *tcb;
-	kos_uint_t actcnt;
 	
 	kos_lock;
 	

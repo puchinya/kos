@@ -12,6 +12,7 @@
 #define KOS_CFG_SPT_SEM				/* セマフォサポート */
 #define KOS_CFG_SPT_FLG				/* イベントフラグサポート */
 #define KOS_CFG_SPT_DTQ				/* データキューサポート */
+#define KOS_CFG_SPT_CYC
 //#define KOS_CFG_SPT_FLG_WMUL		/* KOS_TA_WMULのサポート */
 #define KOS_MAX_ACT_CNT		0xFF	/* act_tskの上限キューイング数 */
 #define KOS_MAX_WUP_CNT		0xFF	/* wup_tskの上限キューイング数 */

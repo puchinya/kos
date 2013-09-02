@@ -51,14 +51,16 @@ kos_er_t kos_isig_tim(void)
 	/* 多重割り込み禁止 */
 	kos_ilock;
 	
-	/* システム時刻をインクリメント */
-	g_kos_systim++;
-	
-	/* タイムアウト待ちのタスクを処理 */
-	kos_process_tmo();
-	
+#ifdef KOS_CFG_SPT_CYC
 	/* 周期ハンドラの処理 */
 	kos_process_cyc();
+#endif
+
+	/* タイムアウト待ちのタスクを処理 */
+	kos_process_tmo();
+
+	/* システム時刻をインクリメント */
+	g_kos_systim++;
 	
 	kos_iunlock;
 	
