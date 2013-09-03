@@ -30,7 +30,7 @@ kos_dtq_cb_t	g_kos_dtq_cb_inst[KOS_MAX_DTQ];
 kos_cyc_cb_t	g_kos_cyc_cb_inst[KOS_MAX_CYC];
 kos_tcb_t		g_kos_idle_tcb_inst;
 
-kos_uint_t		g_kos_isr_stk[KOS_ISR_STKSIZE / sizeof(kos_uint_t)];
+KOS_STK_ALIGN kos_uint_t	g_kos_isr_stk[KOS_ISR_STKSIZE / sizeof(kos_uint_t)];
 
 kos_tcb_t		*g_kos_cur_tcb;					/* executing task control block. */
 kos_bool_t		g_kos_dsp;						/* disabling dispatch */

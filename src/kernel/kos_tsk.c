@@ -18,33 +18,8 @@
 
 void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx);
 
-#ifdef KOS_DISPATCHER_TYPE1
-#ifdef __GNUC__
-uint32_t __get_R4(void)
-{
-	uint32_t result;
-
-	__ASM volatile ("MOV %0, R4" : "=r" (result) );
-
-	return result;
-}
-#else
-__asm uint32_t __get_R4(void)
-{
-	MOV	R0, R4
-	BX	LR
-}
-#endif
-#endif
-
-#ifdef KOS_DISPATCHER_TYPE1
-static void kos_tsk_entry(void)
-{
-	kos_tcb_t *tcb = (kos_tcb_t *)__get_R4();
-#else
 static void kos_tsk_entry(kos_tcb_t *tcb)
 {
-#endif
 	((void (*)(kos_vp_int_t))tcb->ctsk.task)(tcb->ctsk.exinf);
 	kos_ext_tsk();
 }
@@ -53,18 +28,6 @@ void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx)
 {	
 	kos_uint_t *sp;
 	
-#ifdef KOS_DISPATCHER_TYPE1
-	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 10*4);
-	sp[0] = (kos_uint_t)tcb;							// R4
-	sp[1] = 0;								// R5
-	sp[2] = 0;								// R6
-	sp[3] = 0;								// R7
-	sp[4] = 0;								// R8
-	sp[5] = 0;								// R9
-	sp[6] = 0;								// R10
-	sp[7] = 0;								// R11
-	sp[8] = (kos_uint_t)kos_tsk_entry;		// LR
-#else
 	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 16*4);
 	sp[0] = 0;								// R4
 	sp[1] = 0;								// R5
@@ -82,7 +45,6 @@ void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx)
 	sp[13] = 0;								// LR
 	sp[14] = (uint32_t)kos_tsk_entry;		// PC
 	sp[15] = 0x21000000;					// PSR
-#endif
 
 	kos_rdy_tsk_nolock(tcb);
 	if(is_ctx) {
@@ -609,11 +571,16 @@ kos_er_t kos_tslp_tsk(kos_tmo_t tmout)
 			tcb->st.lefttmo = tmout;
 			tcb->st.wobjid = 0;
 			tcb->st.tskwait = KOS_TTW_SLP;
-			er = kos_wait_nolock(tcb);
+			kos_wait_nolock(tcb);
+			kos_unlock;
+			er = tcb->rel_wai_er;
+			goto end;
 		}
 	}
 	
+end_unlock:
 	kos_unlock;
+end:
 	
 	return er;
 }
@@ -896,13 +863,6 @@ kos_er_t kos_sus_tsk(kos_id_t tskid)
 		return KOS_E_OBJ;
 	}
 	
-	/* タスク状態変更 */
-	if(tskstat & KOS_TTS_WAI) {
-		tcb->st.tskstat = KOS_TTS_WAS;
-	} else {
-		tcb->st.tskstat = KOS_TTS_SUS;
-	}
-	
 	/* キューイング数を加算 */
 	suscnt = tcb->st.suscnt;
 	if(suscnt >= KOS_MAX_SUS_CNT) {
@@ -910,6 +870,13 @@ kos_er_t kos_sus_tsk(kos_id_t tskid)
 		goto end;
 	}
 	tcb->st.suscnt = suscnt + 1;
+
+	/* タスク状態変更 */
+	if(tskstat & KOS_TTS_WAI) {
+		tcb->st.tskstat = KOS_TTS_WAS;
+	} else {
+		tcb->st.tskstat = KOS_TTS_SUS;
+	}
 	
 	if(tskstat == KOS_TTS_RDY) {
 		/* 実行可能状態ならRDYキューから削除 */
@@ -1055,9 +1022,9 @@ kos_er_t kos_dly_tsk(kos_reltim_t dlytim)
 	tcb->st.wobjid = 0;
 	tcb->st.tskwait = KOS_TTW_DLY;
 	
-	er = kos_wait_nolock(tcb);
+	kos_wait_nolock(tcb);
 	
 	kos_unlock;
 	
-	return er;
+	return tcb->rel_wai_er;
 }

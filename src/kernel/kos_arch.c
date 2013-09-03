@@ -41,7 +41,7 @@ void kos_arch_setup_systick_handler(void)
 	
 	NVIC_SetPriority(PendSV_IRQn, KOS_ARCH_PRENSV_PRI);
 	
-	period = SystemCoreClock / 100;	
+	period = SystemCoreClock / 2 / 100;
 	SysTick_Config(period);
 	
 	NVIC_SetPriority(SysTick_IRQn, KOS_ARCH_SYSTICK_PRI);
@@ -52,41 +52,32 @@ void kos_arch_setup_systick_handler(void)
 -----------------------------------------------------------------------------*/
 kos_er_t kos_loc_cpu(void)
 {
-	__disable_irq();
+	kos_arch_loc_cpu();
 	return KOS_E_OK;
 }
 
 kos_er_t kos_iloc_cpu(void)
 {
-	__disable_irq();
+	kos_arch_loc_cpu();
 	return KOS_E_OK;
 }
 
 kos_er_t kos_unl_cpu(void)
 {
-	__enable_irq();
+	kos_arch_unl_cpu();
 	return KOS_E_OK;
 }
 
 kos_er_t kos_iunl_cpu(void)
 {
-	__enable_irq();
+	kos_arch_unl_cpu();
 	return KOS_E_OK;
 }
 
-#ifdef __GNUC__
 kos_bool_t kos_sns_loc(void)
 {
-	return (kos_bool_t)(__get_PRIMASK() & 1);
+	return (kos_bool_t)kos_arch_sns_loc();
 }
-#else
-__asm kos_bool_t kos_sns_loc(void)
-{
-	MRS	R0, PRIMASK
-	AND R0, #1
-	BX	LR
-}
-#endif
 
 /*-----------------------------------------------------------------------------
 	archtecuture inplement API
@@ -124,6 +115,7 @@ kos_er_t kos_vchg_intpri(kos_intno_t intno, kos_intpri_t intpri)
 		return KOS_E_PAR;
 	}
 #endif
+
 	NVIC_SetPriority((IRQn_Type)intno, (uint32_t)intpri);
 	
 	return KOS_E_OK;
@@ -136,6 +128,7 @@ kos_er_t kos_vget_intpri(kos_intno_t intno, kos_intpri_t *p_intpri)
 		return KOS_E_PAR;
 	}
 #endif
+
 	*p_intpri = NVIC_GetPriority((IRQn_Type)intno);
 	
 	return KOS_E_OK;
@@ -174,64 +167,7 @@ void SysTick_Handler(void)
 	kos_isig_tim();
 }
 
-#ifdef KOS_DISPATCHER_TYPE1
 #ifndef __GNUC__
-uint32_t g_kos_pendsv_ret_pc;
-
-__asm void pendsv_after_proc(void)
-{
-	extern g_kos_pendsv_ret_pc
-	extern kos_schedule_impl_nolock
-
-	PUSH	{R0-R1}	/* dummy for PC */
-	MRS		R0, APSR
-	PUSH	{R0-R3, R12, LR}
-	
-	LDR		R0, =g_kos_pendsv_ret_pc
-	LDR		R0, [R0]
-	STR		R0, [SP, #28]
-	
-	BL		kos_schedule_impl_nolock
-	
-	POP		{R0-R3, R12, LR}
-	MSR		APSR, R0
-	CPSIE	i
-	
-	POP		{R0, PC}
-}
-
-__asm void PendSV_Handler(void)
-{
-	extern g_kos_pendsv_ret_pc
-	
-	CPSID		i
-	MRS			R0, PSP
-	/* 戻り先PCをg_kos_pendsv_ret_adrに退避 */
-	LDR			R1, [R0, #24]
-	/* PCの下位1bitを立てる */
-	ORR			R1, #1
-	LDR			R2, =g_kos_pendsv_ret_pc
-	STR			R1, [R2]
-	/* 戻り先PCを入れ替え */
-	LDR			R2, =pendsv_after_proc
-	STR			R2, [R0, #24]
-	
-	/* PSRを退避 */
-	LDR			R1, [R0, #28]
-	
-	/* EXPRのITCをクリア */
-	MOV			R2, #0x0000
-	MOVT		R2, #0xF900
-	AND			R1, R2
-	STR			R1, [R0, #28]
-	
-	/* pendsv_after_procへ */
-	BX			LR
-	NOP
-}
-#endif
-
-#else
 /* do schedule */
 __asm void PendSV_Handler(void)
 {

@@ -192,7 +192,7 @@ kos_int_t kos_find_null(void **a, int len);
 
 void kos_process_tmo(void);
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb);
-kos_er_t kos_wait_nolock(kos_tcb_t *tcb);
+void kos_wait_nolock(kos_tcb_t *tcb);
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
 
 void kos_schedule_nolock(void);

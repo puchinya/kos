@@ -26,7 +26,6 @@
 #define KOS_TIC_NUME		1
 #define KOS_TIC_DENO		1
 
-#define KOS_DISPATCHER_TYPE1
 #define KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH	/* acre_xxxのAPI内部でのID探索を一定時間で行います。 */
 //#define KOS_CFG_FAST_IRQ
 

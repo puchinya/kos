@@ -346,6 +346,18 @@ kos_er_t kos_chg_imsk(kos_intpri_t imsk);
 kos_er_t kos_get_imsk(kos_intpri_t *p_imsk);
 #endif
 
+#ifdef KOS_ARCH_STK_ALIGN
+#if defined(__ARMCC_VERSION)
+#define KOS_STK_ALIGN	__align(KOS_ARCH_STK_ALIGN)
+#elif defined(__GNUC__)
+#define KOS_STK_ALIGN	__attribute__((aligned(KOS_ARCH_STK_ALIGN)))
+#else
+#error compile is not supported __align.
+#endif
+#else
+#define KOS_STK_ALIGN
+#endif
+
 #ifdef __cplusplus
 };
 #endif

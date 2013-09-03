@@ -22,20 +22,6 @@ kos_int_t kos_find_null(void **a, int len)
 }
 #endif
 
-#ifdef __GNUC__
-extern void kos_arch_swi_ctx(kos_tcb_t *cur_tcb, kos_tcb_t *next_tcb);
-#else
-__asm void kos_arch_swi_ctx(kos_tcb_t *cur_tcb, kos_tcb_t *next_tcb)
-{
-	PUSH	{R4-R11,LR}
-	LDR		R1, [R1, #16]	/* ext_tskでRUN=>DMT=>RUNに遷移したときのために先に取得する。 */
-	STR		SP, [R0, #16]
-	MOV		SP, R1
-	POP		{R4-R11,LR}
-	BX		LR
-}
-#endif
-
 void kos_schedule_impl_nolock(void)
 {
 	int i, maxpri;
@@ -90,11 +76,7 @@ void kos_schedule_impl_nolock(void)
 	kos_dbgprintf("tsk:%04X RUN\r\n", next_tcb->id);
 	
 	/* コンテキストスイッチ */
-#ifdef KOS_DISPATCHER_TYPE1
-	kos_arch_swi_ctx(cur_tcb, next_tcb);
-#else
 	kos_arch_swi_sp(&cur_tcb->sp, next_tcb->sp);
-#endif
 }
 
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
@@ -107,24 +89,22 @@ void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
 	g_kos_pend_schedule = KOS_TRUE;
 }
 
-kos_er_t kos_wait_nolock(kos_tcb_t *tcb)
+void kos_wait_nolock(kos_tcb_t *tcb)
 {
 	if(g_kos_dsp) {
-		return KOS_E_CTX;
+		tcb->rel_wai_er = KOS_E_CTX;
+		return;
 	}
-	
-	kos_dbgprintf("tsk:%04X WAI\r\n", tcb->id);
-	tcb->st.tskstat = KOS_TTS_WAI;
-	g_kos_pend_schedule = KOS_TRUE;
 	
 	/* 無限待ちでなければタイムアウトリストにもつなげる */
 	if(tcb->st.lefttmo != KOS_TMO_FEVR) {
 		kos_list_insert_prev(&g_kos_tmo_wait_list, &tcb->tmo_list);
 	}
-	
-	kos_schedule_nolock();
-	
-	return tcb->rel_wai_er;
+
+	kos_dbgprintf("tsk:%04X WAI\r\n", tcb->id);
+	tcb->st.tskstat = KOS_TTS_WAI;
+
+	kos_force_schedule_nolock();
 }
 
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
@@ -156,13 +136,9 @@ void kos_schedule_nolock(void)
 {
 	if(g_kos_pend_schedule && !g_kos_dsp) {
 		g_kos_pend_schedule = KOS_FALSE;
-#ifdef KOS_DISPATCHER_TYPE1
-		kos_schedule_impl_nolock();
-#else
 		kos_arch_pend_sv();
-		kos_unlock;
-		kos_lock;
-#endif
+		//kos_unlock;
+		//kos_lock;
 	}
 }
 
@@ -217,14 +193,18 @@ void kos_process_tmo(void)
 		tcb = (kos_tcb_t *)((uint8_t *)l - offsetof(kos_tcb_t, tmo_list));
 		if(--tcb->st.lefttmo == 0) {
 			/* 待ち解除 */
+			kos_ilock;
 			kos_cancel_wait_nolock(tcb, KOS_E_TMOUT);
+			kos_iunlock;
 			do_schedule = 1;
 		}
 		l = next;
 	}
 	
 	if(do_schedule) {
+		kos_ilock;
 		kos_ischedule_nolock();
+		kos_iunlock;
 	}
 }
 
@@ -285,7 +265,6 @@ static void kos_init_vars(void)
 		idle_tcb->id			= KOS_TSK_NONE;
 		idle_tcb->st.tskstat	= KOS_TTS_RUN;
 		idle_tcb->st.tskpri		= g_kos_max_pri;
-		idle_tcb->st.tskpri		= g_kos_max_pri;
 		idle_tcb->st.tskwait	= 0;
 		idle_tcb->st.wobjid		= 0;
 		idle_tcb->st.lefttmo	= 0;
@@ -327,7 +306,6 @@ static void kos_init_vars(void)
 #endif
 }
 
-#ifdef __GNUC__
 void kos_init_regs(void)
 {
 	uint32_t msp = __get_MSP();
@@ -335,28 +313,6 @@ void kos_init_regs(void)
 	__set_MSP((uint32_t)g_kos_isr_stk + g_kos_isr_stksz);
 	__set_CONTROL(2);
 }
-#else
-__asm void kos_init_regs(void)
-{
-	extern g_kos_isr_stk
-	extern g_kos_isr_stksz
-	
-	MRS R0, MSP
-	MSR PSP, R0
-	
-	LDR R0, =g_kos_isr_stk
-	LDR R1, =g_kos_isr_stksz
-	LDR R1, [R1]
-	
-	ADD R0, R1
-	MSR MSP, R0
-	
-	MOV	R0, #2
-	MSR	CONTROL, R0
-	
-	BX	LR
-}
-#endif
 
 void kos_init(void)
 {

@@ -121,7 +121,7 @@ kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout)
 	cb = kos_get_dtq_cb(dtqid);
 	if(cb == KOS_NULL) {
 		er = KOS_E_NOEXS;
-		goto end;
+		goto end_unlock;
 	}
 	
 	if(!kos_list_empty(&cb->r_wait_tsk_list)) {
@@ -139,7 +139,7 @@ kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout)
 			/* 空きがない場合 */
 			if(tmout == KOS_TMO_POL) {
 				er = KOS_E_TMOUT;
-				goto end;
+				goto end_unlock;
 			} else {
 				kos_tcb_t *tcb = g_kos_cur_tcb;
 				kos_list_insert_prev(&cb->s_wait_tsk_list, &tcb->wait_list);
@@ -147,10 +147,10 @@ kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout)
 				tcb->st.wobjid = dtqid;
 				tcb->st.tskwait = KOS_TTW_SDTQ;
 				tcb->wait_exinf = (kos_vp_t)data;
-				er = kos_wait_nolock(tcb);
-				if(er != KOS_E_OK) {
-					goto end;
-				}
+				kos_wait_nolock(tcb);
+				kos_unlock;
+				er = tcb->rel_wai_er;
+				goto end;
 			}
 		} else {
 			/* 空きがあればキューにデータを追加 */
@@ -173,8 +173,9 @@ kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout)
 			}
 		}
 	}
-end:
+end_unlock:
 	kos_unlock;
+end:
 	
 	return er;
 }
@@ -270,7 +271,7 @@ kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout)
 	cb = kos_get_dtq_cb(dtqid);
 	if(cb == KOS_NULL) {
 		er = KOS_E_NOEXS;
-		goto end;
+		goto end_unlock;
 	}
 	
 	if(cb->sdtqcnt > 0) {
@@ -312,7 +313,7 @@ kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout)
 			
 		} else if(tmout == KOS_TMO_POL) {
 			er = KOS_E_TMOUT;
-			goto end;
+			goto end_unlock;
 		} else {
 			/* データが送信されるまで待つ */
 			kos_tcb_t *tcb = g_kos_cur_tcb;
@@ -321,14 +322,15 @@ kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout)
 			tcb->st.wobjid = dtqid;
 			tcb->st.tskwait = KOS_TTW_RDTQ;
 			tcb->wait_exinf = (kos_vp_t)p_data;
-			er = kos_wait_nolock(tcb);
-			if(er != KOS_E_OK) {
-				goto end;
-			}
+			kos_wait_nolock(tcb);
+			kos_unlock;
+			er = tcb->rel_wai_er;
+			goto end;
 		}
 	}
-end:
+end_unlock:
 	kos_unlock;
+end:
 	
 	return er;
 }

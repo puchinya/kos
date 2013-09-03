@@ -48,9 +48,6 @@ kos_er_t kos_isig_tim(void)
 		return KOS_E_CTX;
 	}
 	
-	/* 多重割り込み禁止 */
-	kos_ilock;
-	
 #ifdef KOS_CFG_SPT_CYC
 	/* 周期ハンドラの処理 */
 	kos_process_cyc();
@@ -61,8 +58,6 @@ kos_er_t kos_isig_tim(void)
 
 	/* システム時刻をインクリメント */
 	g_kos_systim++;
-	
-	kos_iunlock;
 	
 	return KOS_E_OK;
 }

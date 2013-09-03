@@ -120,7 +120,7 @@ kos_er_t kos_twai_sem(kos_id_t semid, kos_tmo_t tmout)
 	cb = kos_get_sem_cb(semid);
 	if(cb == KOS_NULL) {
 		er = KOS_E_NOEXS;
-		goto end;
+		goto end_unlock;
 	}
 	if(cb->semcnt > 0) {
 		cb->semcnt--;
@@ -133,11 +133,15 @@ kos_er_t kos_twai_sem(kos_id_t semid, kos_tmo_t tmout)
 			tcb->st.lefttmo = tmout;
 			tcb->st.wobjid = semid;
 			tcb->st.tskwait = KOS_TTW_SEM;
-			er = kos_wait_nolock(tcb);
+			kos_wait_nolock(tcb);
+			kos_unlock;
+			er = tcb->rel_wai_er;
+			goto end;
 		}
 	}
-end:
+end_unlock:
 	kos_unlock;
+end:
 	
 	return er;
 }

@@ -327,7 +327,7 @@ kos_er_t kos_twai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 	cb = kos_get_flg_cb(flgid);
 	if(cb == KOS_NULL) {
 		er = KOS_E_NOEXS;
-		goto end;
+		goto end_unlock;
 	}
 	
 #ifdef KOS_CFG_SPT_FLG_WMUL
@@ -335,24 +335,24 @@ kos_er_t kos_twai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 		!kos_list_empty(&cb->wait_tsk_list))
 	{
 		er = KOS_E_ILUSE;
-		goto end;
+		goto end_unlock;
 	}
 #else
 	if(!kos_list_empty(&cb->wait_tsk_list)) {
 		er = KOS_E_ILUSE;
-		goto end;
+		goto end_unlock;
 	}
 #endif
 	
 	if(wfmode == KOS_TWF_ANDW) {
 		if(cb->flgptn & waiptn) {
 			*p_flgptn = cb->flgptn;
-			goto end;
+			goto end_unlock;
 		}
 	} else {
 		if((cb->flgptn & waiptn) == waiptn) {
 			*p_flgptn = cb->flgptn;
-			goto end;
+			goto end_unlock;
 		}
 	}
 	
@@ -380,10 +380,14 @@ kos_er_t kos_twai_flg(kos_id_t flgid, kos_flgptn_t waiptn,
 		cb->waiptn = waiptn;
 		cb->relptn = p_flgptn;
 #endif
-		er = kos_wait_nolock(tcb);
+		kos_wait_nolock(tcb);
+		kos_unlock;
+		er = tcb->rel_wai_er;
+		goto end;
 	}
-end:
+end_unlock:
 	kos_unlock;
+end:
 	
 	return er;
 }
