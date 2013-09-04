@@ -70,6 +70,7 @@ kos_er_t kos_del_dtq(kos_id_t dtqid)
 {
 	kos_dtq_cb_t *cb;
 	kos_er_t er;
+	kos_bool_t do_tsk_dsp;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(dtqid > g_kos_max_dtq || dtqid == 0)
@@ -87,8 +88,8 @@ kos_er_t kos_del_dtq(kos_id_t dtqid)
 	}
 	
 	/* 待ち行列にいるタスクの待ちを解除 */
-	kos_cancel_wait_all_for_delapi_nolock(&cb->r_wait_tsk_list);
-	kos_cancel_wait_all_for_delapi_nolock(&cb->s_wait_tsk_list);
+	do_tsk_dsp = kos_cancel_wait_all_for_delapi_nolock(&cb->r_wait_tsk_list);
+	do_tsk_dsp |= kos_cancel_wait_all_for_delapi_nolock(&cb->s_wait_tsk_list);
 
 	/* 登録解除 */
 	g_kos_dtq_cb[dtqid - 1] = KOS_NULL;
@@ -97,7 +98,9 @@ kos_er_t kos_del_dtq(kos_id_t dtqid)
 #endif
 	
 	/* スケジューラー起動 */
-	kos_schedule_nolock();
+	if(do_tsk_dsp) {
+		kos_tsk_dsp();
+	}
 end:
 	kos_unlock;
 	
@@ -132,7 +135,7 @@ kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout)
 		*((kos_vp_int_t *)tcb->wait_exinf) = data;
 		
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_schedule_nolock();
+		kos_tsk_dsp();
 		
 	} else {
 		if(cb->sdtqcnt == cb->cdtq.dtqcnt) {
@@ -169,7 +172,7 @@ kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout)
 				kos_tcb_t *tcb = (kos_tcb_t *)cb->r_wait_tsk_list.next;
 				
 				kos_cancel_wait_nolock(tcb, KOS_E_OK);
-				kos_schedule_nolock();
+				kos_tsk_dsp();
 			}
 		}
 	}
@@ -208,7 +211,7 @@ kos_er_t kos_ipsnd_dtq(kos_id_t dtqid, kos_vp_int_t data)
 		*((kos_vp_int_t *)tcb->wait_exinf) = data;
 		
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_ischedule_nolock();
+		kos_itsk_dsp();
 		
 	} else {
 		if(cb->sdtqcnt == cb->cdtq.dtqcnt) {
@@ -232,7 +235,7 @@ kos_er_t kos_ipsnd_dtq(kos_id_t dtqid, kos_vp_int_t data)
 				kos_tcb_t *tcb = (kos_tcb_t *)cb->r_wait_tsk_list.next;
 				
 				kos_cancel_wait_nolock(tcb, KOS_E_OK);
-				kos_ischedule_nolock();
+				kos_itsk_dsp();
 			}
 		}
 	}
@@ -297,7 +300,7 @@ kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout)
 			cb->sdtqcnt++;
 			
 			kos_cancel_wait_nolock(tcb, KOS_E_OK);
-			kos_schedule_nolock();
+			kos_tsk_dsp();
 		}
 	} else {
 		if(!kos_list_empty(&cb->s_wait_tsk_list)) {
@@ -309,7 +312,7 @@ kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout)
 			*p_data = (kos_vp_int_t)tcb->wait_exinf;
 			
 			kos_cancel_wait_nolock(tcb, KOS_E_OK);
-			kos_schedule_nolock();
+			kos_tsk_dsp();
 			
 		} else if(tmout == KOS_TMO_POL) {
 			er = KOS_E_TMOUT;

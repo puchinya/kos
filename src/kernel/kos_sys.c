@@ -29,7 +29,7 @@ kos_er_t kos_rot_rdq(kos_pri_t tskpri)
 	
 	if(tskpri == cur_tcb->st.tskpri) {
 		kos_rdy_tsk_nolock(cur_tcb);
-		kos_schedule_nolock();
+		kos_tsk_dsp();
 	} else {
 		kos_list_t *tcb;
 		kos_list_t *rdy_que_i;
@@ -61,7 +61,7 @@ kos_er_t kos_irot_rdq(kos_pri_t tskpri)
 	
 	if(tskpri == cur_tcb->st.tskpri) {
 		kos_rdy_tsk_nolock(cur_tcb);
-		kos_ischedule_nolock();
+		kos_itsk_dsp();
 	} else {
 		kos_list_t *tcb;
 		kos_list_t *rdy_que_i;
@@ -122,7 +122,10 @@ kos_er_t kos_ena_dsp(void)
 	
 	if(g_kos_dsp) {
 		g_kos_dsp = KOS_FALSE;
-		kos_schedule_nolock();
+		if(g_kos_pend_dsp) {
+			g_kos_pend_dsp = KOS_FALSE;
+			kos_tsk_dsp();
+		}
 	}
 	
 	kos_unlock;

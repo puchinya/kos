@@ -24,15 +24,17 @@ kos_int_t kos_find_null(void **a, int len)
 
 void kos_schedule_impl_nolock(void)
 {
-	int i, maxpri;
+	uint32_t i, maxpri;
 	kos_tcb_t *cur_tcb, *next_tcb;
 	kos_list_t *rdy_que;
 	
+	KOS_SCHD_PORT_HI();
+
 	/* 切り替え先タスクを探索する下限優先度を決定する */	
 	cur_tcb = g_kos_cur_tcb;
 
 	if(cur_tcb->st.tskstat == KOS_TTS_RUN) {
-		/* 実行状態なら高い優先度のみ探索 */
+		/* 実行状態なら高い優先度のみを探索 */
 		maxpri = cur_tcb->st.tskpri - 1;
 	} else {
 		/* 実行状態でなければ全優先度を探索 */
@@ -42,24 +44,34 @@ void kos_schedule_impl_nolock(void)
 	/* 切り替え先タスクをRDYキューから探索 */
 	next_tcb = KOS_NULL;
 	rdy_que = g_kos_rdy_que;
-	for(i = 0; i < maxpri; i++) {
-		if(!kos_list_empty(&rdy_que[i])) {
-			next_tcb = (kos_tcb_t *)rdy_que[i].next;
-			break;
+	{
+		kos_list_t *l = rdy_que;
+		kos_list_t *l_end = &rdy_que[maxpri];
+		while(l != l_end) {
+			kos_list_t *l_next = l->next;
+			if(l != l_next) {
+				next_tcb = (kos_tcb_t *)l_next;
+				break;
+			}
+			l++;
 		}
 	}
 	
-	/* 現在のタスクが実行中で切り替え先が無ければ何もしない */	
+	/* 現在のタスクが実行中で切り替え先が無ければ何もしない。 */
 	if(next_tcb == KOS_NULL) {
-		if(cur_tcb->st.tskstat == KOS_TTS_RUN) {
-			return;
-		}
+		KOS_SCHD_PORT_LO();
+		return;
 	}
 	
+#ifdef KOS_ARCH_CFG_SPT_PENDSV
+	/* レディキューを編集するときは排他をかける */
+	kos_ilock;
+#endif
+
 	if(cur_tcb->st.tskstat == KOS_TTS_RUN) {
-		/* 現在のタスクが実行状態ならレディキューの末尾へ移動 */
+		/* 現在のタスクが実行状態ならレディキューの先頭へ移動 */
 		cur_tcb->st.tskstat = KOS_TTS_RDY;
-		kos_list_insert_prev(&rdy_que[cur_tcb->st.tskpri-1],
+		kos_list_insert_next(&rdy_que[cur_tcb->st.tskpri-1],
 			(kos_list_t *)cur_tcb);
 		
 		kos_dbgprintf("tsk:%04X RDY\r\n", cur_tcb->id);
@@ -68,12 +80,18 @@ void kos_schedule_impl_nolock(void)
 	/* 切り替え先のタスクをレディキューから削除 */
 	kos_list_remove((kos_list_t *)next_tcb);
 	
+#ifdef KOS_ARCH_CFG_SPT_PENDSV
+	kos_iunlock;
+#endif
+
 	/* 切り替え先のタスクを実行状態へ変更 */
 	next_tcb->st.tskstat = KOS_TTS_RUN;
 	
 	g_kos_cur_tcb = next_tcb;
 	
 	kos_dbgprintf("tsk:%04X RUN\r\n", next_tcb->id);
+
+	KOS_SCHD_PORT_LO();
 	
 	/* コンテキストスイッチ */
 	kos_arch_swi_sp(&cur_tcb->sp, next_tcb->sp);
@@ -81,16 +99,18 @@ void kos_schedule_impl_nolock(void)
 
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
 {
+	/* 優先度をRDYに変更 */
 	tcb->st.tskstat = KOS_TTS_RDY;
+
+	/* RDYキューへ追加 */
 	kos_list_insert_prev(&g_kos_rdy_que[tcb->st.tskpri-1], (kos_list_t *)tcb);
 	
 	kos_dbgprintf("tsk:%04X RDY\r\n", tcb->id);
-	
-	g_kos_pend_schedule = KOS_TRUE;
 }
 
 void kos_wait_nolock(kos_tcb_t *tcb)
 {
+	/* ディスパッチ禁止状態で呼ばれた場合はエラーを返す  */
 	if(g_kos_dsp) {
 		tcb->rel_wai_er = KOS_E_CTX;
 		return;
@@ -102,9 +122,11 @@ void kos_wait_nolock(kos_tcb_t *tcb)
 	}
 
 	kos_dbgprintf("tsk:%04X WAI\r\n", tcb->id);
+
+	/* WAI状態へ変更 */
 	tcb->st.tskstat = KOS_TTS_WAI;
 
-	kos_force_schedule_nolock();
+	kos_force_tsk_dsp();
 }
 
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
@@ -132,24 +154,6 @@ void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
 	}
 }
 
-void kos_schedule_nolock(void)
-{
-	if(g_kos_pend_schedule && !g_kos_dsp) {
-		g_kos_pend_schedule = KOS_FALSE;
-		kos_arch_pend_sv();
-		//kos_unlock;
-		//kos_lock;
-	}
-}
-
-void kos_ischedule_nolock(void)
-{
-	if(g_kos_pend_schedule && !g_kos_dsp) {
-		g_kos_pend_schedule = KOS_FALSE;
-		kos_arch_pend_sv();
-	}
-}
-
 /*
  *	同期・通信オブジェクト削除API用の待ち解除処理です
  *	リスト中のすべてのタスクに対して下記を行います。
@@ -157,9 +161,10 @@ void kos_ischedule_nolock(void)
  *	2.待ち解除のエラーコードをKOS_E_DLTに設定
  *	3.待ちオブジェクトをなし(=0)にする
  */
-void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list)
+kos_bool_t kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list)
 {
 	const kos_list_t *l;
+	kos_bool_t do_tsk_dsp = KOS_FALSE;
 	
 	for(l = wait_tsk_list->next; l != wait_tsk_list; l = l->next)
 	{
@@ -176,15 +181,20 @@ void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list)
 			tcb->st.tskstat = KOS_TTS_SUS;
 		} else {
 			kos_rdy_tsk_nolock(tcb);
+			do_tsk_dsp = KOS_TRUE;
 		}
 	}
+
+	return do_tsk_dsp;
 }
 
 void kos_process_tmo(void)
 {
-	int do_schedule = 0;
-	
+	kos_bool_t do_dsp;
 	kos_list_t *l, *end, *next;
+
+	do_dsp = KOS_FALSE;
+
 	end = &g_kos_tmo_wait_list;
 	for(l = end->next; l != end; ) {
 		kos_tcb_t *tcb;
@@ -192,19 +202,18 @@ void kos_process_tmo(void)
 		
 		tcb = (kos_tcb_t *)((uint8_t *)l - offsetof(kos_tcb_t, tmo_list));
 		if(--tcb->st.lefttmo == 0) {
-			/* 待ち解除 */
+			/* 割り込みをマスクして待ち解除を行う */
 			kos_ilock;
 			kos_cancel_wait_nolock(tcb, KOS_E_TMOUT);
 			kos_iunlock;
-			do_schedule = 1;
+			do_dsp = KOS_TRUE;
 		}
 		l = next;
 	}
-	
-	if(do_schedule) {
-		kos_ilock;
-		kos_ischedule_nolock();
-		kos_iunlock;
+
+	/* 1つ以上の待ちを解除したらディスパッチを行う */
+	if(do_dsp) {
+		kos_itsk_dsp();
 	}
 }
 
@@ -247,7 +256,7 @@ static void kos_init_vars(void)
 	int i;
 	
 	g_kos_dsp = KOS_TRUE;
-	g_kos_pend_schedule = KOS_FALSE;
+	g_kos_pend_dsp = KOS_FALSE;
 	g_kos_systim = 0;
 	
 	kos_list_init(&g_kos_tmo_wait_list);

@@ -48,9 +48,9 @@ void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx)
 
 	kos_rdy_tsk_nolock(tcb);
 	if(is_ctx) {
-		kos_ischedule_nolock();
+		kos_itsk_dsp();
 	} else {
-		kos_schedule_nolock();
+		kos_tsk_dsp();
 	}
 }
 
@@ -331,7 +331,7 @@ void kos_ext_tsk(void)
 		tcb->st.actcnt = actcnt;
 		kos_local_act_tsk_impl_nolock(tcb, KOS_FALSE);
 	} else {
-		kos_force_schedule_nolock();
+		kos_tsk_dsp();
 	}
 end:
 	kos_unlock;
@@ -354,7 +354,7 @@ void kos_exd_tsk(void)
 	kos_list_insert_prev(&g_kos_tcb_unused_list, (kos_list_t *)tcb);
 #endif
 	
-	kos_force_schedule_nolock();
+	kos_tsk_dsp();
 	
 end:
 	kos_unlock;
@@ -422,7 +422,7 @@ kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
 				/* 一旦RDY状態に変えてスケジューリング */
 				kos_rdy_tsk_nolock(tcb);
 				
-				kos_schedule_nolock();
+				kos_tsk_dsp();
 			} else {
 				/* 優先度が高くなる場合は実行中のタスクは変化しないので何もしない */
 			}
@@ -436,7 +436,7 @@ kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
 			
 			/* 現在実行中のタスク(自タスク)より優先度が高くなっていればスケジューリング */
 			if(g_kos_cur_tcb->st.tskpri > new_tskpri) {
-				kos_force_schedule_nolock();
+				kos_tsk_dsp();
 			}
 		}
 	}
@@ -613,7 +613,7 @@ kos_er_t kos_wup_tsk(kos_id_t tskid)
 		tcb->st.tskwait == KOS_TTW_SLP)
 	{
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_schedule_nolock();
+		kos_tsk_dsp();
 	} else if(tcb->st.tskstat == KOS_TTS_DMT) {
 		er = KOS_E_OBJ;
 		goto end;
@@ -725,7 +725,7 @@ kos_er_t kos_iwup_tsk(kos_id_t tskid)
 		tcb->st.tskwait == KOS_TTW_SLP)
 	{
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_ischedule_nolock();
+		kos_itsk_dsp();
 	} else if(tcb->st.tskstat == KOS_TTS_DMT) {
 		er = KOS_E_OBJ;
 		goto end;
@@ -776,7 +776,7 @@ kos_er_t kos_rel_wai(kos_id_t tskid)
 	}
 	
 	kos_cancel_wait_nolock(tcb, KOS_E_RLWAI);
-	kos_schedule_nolock();
+	kos_tsk_dsp();
 	
 end:
 	kos_unlock;
@@ -817,7 +817,7 @@ kos_er_t kos_irel_wai(kos_id_t tskid)
 	}
 	
 	kos_cancel_wait_nolock(tcb, KOS_E_RLWAI);
-	kos_ischedule_nolock();
+	kos_itsk_dsp();
 	
 end:
 	kos_iunlock;
@@ -883,7 +883,7 @@ kos_er_t kos_sus_tsk(kos_id_t tskid)
 		kos_list_remove((kos_list_t *)tcb);
 	} else if(tskstat == KOS_TTS_RUN) {
 		/* 実行状態ならスケジューリング */
-		kos_force_schedule_nolock();
+		kos_tsk_dsp();
 	}
 end:
 	kos_unlock;
@@ -939,7 +939,7 @@ kos_er_t kos_rsm_tsk(kos_id_t tskid)
 			tcb->st.tskstat = KOS_TTS_WAI;
 		} else {
 			kos_rdy_tsk_nolock(tcb);
-			kos_schedule_nolock();
+			kos_tsk_dsp();
 		}
 	}
 	
@@ -995,7 +995,7 @@ kos_er_t kos_frsm_tsk(kos_id_t tskid)
 		tcb->st.tskstat = KOS_TTS_WAI;
 	} else {
 		kos_rdy_tsk_nolock(tcb);
-		kos_schedule_nolock();
+		kos_tsk_dsp();
 	}
 	
 end:

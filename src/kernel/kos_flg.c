@@ -70,6 +70,7 @@ kos_er_t kos_del_flg(kos_id_t flgid)
 {
 	kos_flg_cb_t *cb;
 	kos_er_t er;
+	kos_bool_t do_tsk_dsp;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(flgid > g_kos_max_flg || flgid == 0)
@@ -87,7 +88,7 @@ kos_er_t kos_del_flg(kos_id_t flgid)
 	}
 	
 	/* 待ち行列にいるタスクの待ちを解除 */
-	kos_cancel_wait_all_for_delapi_nolock(&cb->wait_tsk_list);
+	do_tsk_dsp = kos_cancel_wait_all_for_delapi_nolock(&cb->wait_tsk_list);
 
 	/* 登録解除 */
 	g_kos_flg_cb[flgid - 1] = KOS_NULL;
@@ -96,7 +97,9 @@ kos_er_t kos_del_flg(kos_id_t flgid)
 #endif
 	
 	/* スケジューラー起動 */
-	kos_schedule_nolock();
+	if(do_tsk_dsp) {
+		kos_tsk_dsp();
+	}
 end:
 	kos_unlock;
 	
@@ -129,7 +132,7 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 #ifdef KOS_CFG_SPT_FLG_WMUL
 		kos_list_t *wait_tsk_list = &cb->wait_tsk_list;
 		kos_list_t *l;
-		kos_bool_t do_schedule = KOS_FALSE;
+		kos_bool_t do_tsk_dsp = KOS_FALSE;
 		
 		for(l = wait_tsk_list->next; l != wait_tsk_list; l = l->next) {
 			kos_tcb_t *tcb;
@@ -146,11 +149,10 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 					continue;
 			}
 			
-			do_schedule = KOS_TRUE;
-			
 			wait_exinf->relptn = cb->flgptn;
 			
 			kos_cancel_wait_nolock(tcb, KOS_E_OK);
+			do_tsk_dsp = KOS_TRUE;
 			
 			if(cb->cflg->flgatr & KOS_TA_CLR) {
 				/* TA_CLRが指定されているなら、タスクをひとつ解除した時点でクリアする(仕様) */
@@ -162,8 +164,8 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 			}
 		}
 		
-		if(do_schedule) {
-			kos_schedule_nolock();
+		if(do_tsk_dsp) {
+			kos_tsk_dsp();
 		}
 #else
 		do {
@@ -180,7 +182,7 @@ kos_er_t kos_set_flg(kos_id_t flgid, kos_flgptn_t setptn)
 				cb->flgptn = 0;
 			}
 			kos_cancel_wait_nolock((kos_tcb_t *)cb->wait_tsk_list.next, KOS_E_OK);
-			kos_schedule_nolock();
+			kos_tsk_dsp();
 		} while(0);
 #endif
 	}
@@ -217,7 +219,7 @@ kos_er_t kos_iset_flg(kos_id_t flgid, kos_flgptn_t setptn)
 #ifdef KOS_CFG_SPT_FLG_WMUL
 		kos_list_t *wait_tsk_list = &cb->wait_tsk_list;
 		kos_list_t *l;
-		kos_bool_t do_schedule = KOS_FALSE;
+		kos_bool_t do_tsk_dsp = KOS_FALSE;
 		
 		for(l = wait_tsk_list->next; l != wait_tsk_list; l = l->next) {
 			kos_tcb_t *tcb;
@@ -234,11 +236,10 @@ kos_er_t kos_iset_flg(kos_id_t flgid, kos_flgptn_t setptn)
 					continue;
 			}
 			
-			do_schedule = KOS_TRUE;
-			
 			wait_exinf->relptn = cb->flgptn;
 			
 			kos_cancel_wait_nolock(tcb, KOS_E_OK);
+			do_tsk_dsp = KOS_TRUE;
 			
 			if(cb->cflg->flgatr & KOS_TA_CLR) {
 				/* TA_CLRが指定されているなら、タスクをひとつ解除した時点でクリアする(仕様) */
@@ -250,8 +251,8 @@ kos_er_t kos_iset_flg(kos_id_t flgid, kos_flgptn_t setptn)
 			}
 		}
 		
-		if(do_schedule) {
-			kos_ischedule_nolock();
+		if(do_tsk_dsp) {
+			kos_itsk_dsp();
 		}
 #else
 		do {
@@ -268,7 +269,7 @@ kos_er_t kos_iset_flg(kos_id_t flgid, kos_flgptn_t setptn)
 				cb->flgptn = 0;
 			}
 			kos_cancel_wait_nolock((kos_tcb_t *)cb->wait_tsk_list.next, KOS_E_OK);
-			kos_ischedule_nolock();
+			kos_itsk_dsp();
 		} while(0);
 #endif
 	}

@@ -70,6 +70,7 @@ kos_er_t kos_del_sem(kos_id_t semid)
 {
 	kos_sem_cb_t *cb;
 	kos_er_t er;
+	kos_bool_t do_tsk_dsp;
 	
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(semid > g_kos_max_sem || semid == 0)
@@ -87,7 +88,7 @@ kos_er_t kos_del_sem(kos_id_t semid)
 	}
 	
 	/* 待ち行列にいるタスクの待ちを解除 */
-	kos_cancel_wait_all_for_delapi_nolock(&cb->wait_tsk_list);
+	do_tsk_dsp = kos_cancel_wait_all_for_delapi_nolock(&cb->wait_tsk_list);
 	
 	/* 登録解除 */
 	g_kos_sem_cb[semid - 1] = KOS_NULL;
@@ -96,7 +97,9 @@ kos_er_t kos_del_sem(kos_id_t semid)
 #endif
 	
 	/* スケジューラー起動 */
-	kos_schedule_nolock();
+	if(do_tsk_dsp) {
+		kos_tsk_dsp();
+	}
 end:
 	kos_unlock;
 	
@@ -177,7 +180,7 @@ kos_er_t kos_sig_sem(kos_id_t semid)
 		kos_tcb_t *tcb = (kos_tcb_t *)cb->wait_tsk_list.next;
 		
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_schedule_nolock();
+		kos_tsk_dsp();
 	}
 end:
 	kos_unlock;
@@ -216,7 +219,7 @@ kos_er_t kos_isig_sem(kos_id_t semid)
 		kos_tcb_t *tcb = (kos_tcb_t *)cb->wait_tsk_list.next;
 		
 		kos_cancel_wait_nolock(tcb, KOS_E_OK);
-		kos_ischedule_nolock();
+		kos_itsk_dsp();
 	}
 end:
 	kos_iunlock;

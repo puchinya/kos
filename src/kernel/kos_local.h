@@ -15,15 +15,21 @@
 #include "kos.h"
 #include "kos_arch.h"
 
+#define KOS_LOCK_PORT_HI()	GPIOB->BSRRL = 0x0080
+#define KOS_LOCK_PORT_LO()	GPIOB->BSRRH = 0x0080
+#define KOS_SCHD_PORT_HI()	GPIOB->BSRRL = 0x0100
+#define KOS_SCHD_PORT_LO()	GPIOB->BSRRH = 0x0100
+
+
 #ifdef KOS_CFG_FAST_IRQ
 #define kos_lock	kos_arch_mask_pendsv()
 #define kos_unlock	kos_arch_unmask_pendsv()
 #else
-#define kos_lock	kos_arch_loc_cpu()
-#define kos_unlock	kos_arch_unl_cpu()
+#define kos_lock	do { kos_arch_loc_cpu(); KOS_LOCK_PORT_HI(); } while(0)
+#define kos_unlock	do { KOS_LOCK_PORT_LO(); kos_arch_unl_cpu(); } while(0)
 #endif
-#define kos_ilock	kos_arch_loc_cpu()
-#define kos_iunlock	kos_arch_unl_cpu()
+#define kos_ilock	do { kos_arch_loc_cpu(); KOS_LOCK_PORT_HI(); } while(0)
+#define kos_iunlock	do { KOS_LOCK_PORT_LO(); kos_arch_unl_cpu(); } while(0)
 
 #define KOS_ARRAY_LEN(n)	(sizeof(n)/sizeof((n)[0]));
 
@@ -130,7 +136,7 @@ extern kos_uint_t	g_kos_isr_stk[];
 
 extern kos_list_t	g_kos_tmo_wait_list;
 extern kos_bool_t	g_kos_dsp;
-extern kos_bool_t	g_kos_pend_schedule;
+extern kos_bool_t	g_kos_pend_dsp;
 extern kos_systim_t g_kos_systim;
 
 extern const kos_uint_t g_kos_max_tsk;
@@ -164,6 +170,14 @@ static KOS_INLINE void kos_list_init(kos_list_t *l)
 	l->prev = l;
 }
 
+static KOS_INLINE void kos_list_insert_next(kos_list_t *l, kos_list_t *n)
+{
+	l->next->prev = n;
+	n->next = l->next;
+	n->prev = l;
+	l->next = n;
+}
+
 static KOS_INLINE void kos_list_insert_prev(kos_list_t *l, kos_list_t *n)
 {
 	l->prev->next = n;
@@ -183,6 +197,17 @@ static KOS_INLINE int kos_list_empty(kos_list_t *l)
 	return l == l->next;
 }
 
+
+/* ディスパッチャ起動要求を設定します */
+#ifdef KOS_ARCH_CFG_SPT_PENDSV
+#define kos_tsk_dsp()		if(g_kos_dsp) { g_kos_pend_dsp = KOS_TRUE; } else { kos_arch_pend_sv(); }
+#define kos_force_tsk_dsp()	kos_arch_pend_sv()
+#define kos_itsk_dsp()		kos_tsk_dsp()
+#else
+#define kos_tsk_dsp()
+#define kos_itsk_dsp()
+#endif
+
 void kos_init(void);
 void kos_start_kernel(void);
 
@@ -200,7 +225,7 @@ void kos_ischedule_nolock(void);
 void kos_schedule_impl_nolock(void);
 #define kos_force_schedule_nolock() do { g_kos_pend_schedule = KOS_TRUE; kos_schedule_nolock(); } while(0);
 #define kos_force_ischedule_nolock() do { g_kos_pend_schedule = KOS_TRUE; kos_ischedule_nolock(); } while(0);
-void kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list);
+kos_bool_t kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list);
 
 /* kos_cyc.c */
 void kos_init_cyc(void);
