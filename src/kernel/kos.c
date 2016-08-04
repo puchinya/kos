@@ -99,7 +99,7 @@ void kos_schedule_impl_nolock(void)
 
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb)
 {
-	/* 優先度をRDYに変更 */
+	/* RDY状態に変更 */
 	tcb->st.tskstat = KOS_TTS_RDY;
 
 	/* RDYキューへ追加 */
