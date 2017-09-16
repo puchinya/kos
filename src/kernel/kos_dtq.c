@@ -12,7 +12,7 @@
 
 #ifdef KOS_CFG_SPT_DTQ
 
-#define CB_TO_INDEX(cb)			(((uintptr_t)cb - (uintptr_t)g_kos_dtq_cb) / sizeof(kos_dtq_cb_t))
+#define CB_TO_INDEX(cb)			(((uintptr_t)cb - (uintptr_t)g_kos_dtq_cb_inst) / sizeof(kos_dtq_cb_t))
 #define kos_get_dtq_cb(dtqid)	(g_kos_dtq_cb[(dtqid) - 1])
 
 kos_er_id_t kos_cre_dtq(const kos_cdtq_t *pk_cdtq)
@@ -60,6 +60,20 @@ kos_er_id_t kos_cre_dtq(const kos_cdtq_t *pk_cdtq)
 	kos_list_init(&cb->s_wait_tsk_list);
 	
 	er_id = empty_index + 1;
+
+	if(cb->cdtq.dtq == NULL) {
+		cb->dtq = kos_alloc_nolock(sizeof(kos_vp_int_t) * cb->cdtq.dtqcnt);
+		if(cb->dtq == NULL) {
+			g_kos_dtq_cb[empty_index] = KOS_NULL;
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+			kos_list_insert_prev(&g_kos_dtq_cb_unused_list, (kos_list_t *)cb);
+#endif
+			er_id = KOS_E_NOID;
+			goto end;
+		}
+	} else {
+		cb->dtq = cb->cdtq.dtq;
+	}
 end:
 	kos_unlock;
 	
@@ -90,6 +104,10 @@ kos_er_t kos_del_dtq(kos_id_t dtqid)
 	/* 待ち行列にいるタスクの待ちを解除 */
 	do_tsk_dsp = kos_cancel_wait_all_for_delapi_nolock(&cb->r_wait_tsk_list);
 	do_tsk_dsp |= kos_cancel_wait_all_for_delapi_nolock(&cb->s_wait_tsk_list);
+
+	if(cb->cdtq.dtq == NULL) {
+		kos_free_nolock(cb->dtq);
+	}
 
 	/* 登録解除 */
 	g_kos_dtq_cb[dtqid - 1] = KOS_NULL;
@@ -161,7 +179,7 @@ kos_er_t kos_tsnd_dtq(kos_id_t dtqid, kos_vp_int_t data, kos_tmo_t tmout)
 			
 			wp = cb->dtq_wp;
 			
-			((kos_vp_int_t *)cb->cdtq.dtq)[wp] = data;
+			((kos_vp_int_t *)cb->dtq)[wp] = data;
 			
 			wp++;
 			if(wp >= cb->cdtq.dtqcnt) wp = 0;
@@ -224,7 +242,7 @@ kos_er_t kos_ipsnd_dtq(kos_id_t dtqid, kos_vp_int_t data)
 			
 			wp = cb->dtq_wp;
 			
-			((kos_vp_int_t *)cb->cdtq.dtq)[wp] = data;
+			((kos_vp_int_t *)cb->dtq)[wp] = data;
 			
 			wp++;
 			if(wp >= cb->cdtq.dtqcnt) wp = 0;
@@ -283,7 +301,7 @@ kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout)
 		
 		rp = cb->dtq_rp;
 		
-		*p_data = ((kos_vp_int_t *)cb->cdtq.dtq)[rp];
+		*p_data = ((kos_vp_int_t *)cb->dtq)[rp];
 		
 		rp++;
 		if(rp >= cb->cdtq.dtqcnt) rp = 0;
@@ -296,7 +314,7 @@ kos_er_t kos_trcv_dtq(kos_id_t dtqid, kos_vp_int_t *p_data, kos_tmo_t tmout)
 			
 			tcb = (kos_tcb_t *)cb->s_wait_tsk_list.next;
 			
-			((kos_vp_int_t *)cb->cdtq.dtq)[cb->dtq_wp++] = (kos_vp_int_t)tcb->wait_exinf;
+			((kos_vp_int_t *)cb->dtq)[cb->dtq_wp++] = (kos_vp_int_t)tcb->wait_exinf;
 			cb->sdtqcnt++;
 			
 			kos_cancel_wait_nolock(tcb, KOS_E_OK);

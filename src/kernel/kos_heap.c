@@ -53,7 +53,7 @@ kos_er_t kos_init_heap(void)
 	chunk->size_status = free_size;
 	chunk->prev_free_chunk = NULL;
 	chunk->next_free_chunk = NULL;
-	*(uint32_t *)((uint8_t *)chunk + free_size) = free_size;
+	*(uint32_t *)((uint8_t *)chunk + FREE_SPACE_OFFSET + free_size) = free_size;
 
 	g_kos_heap_free_chunk_top = chunk;
 
@@ -126,12 +126,12 @@ kos_vp_t kos_alloc_nolock(kos_size_t size)
 				next_chunk->magic = ILLEGAL_FREE_CHECK_MAGIC;
 #endif
 				next_chunk->size_status = next_chunk_free_size;
-				*(uint32_t *)((uint8_t *)next_chunk + next_chunk_free_size) = next_chunk_free_size;
+				*(uint32_t *)((uint8_t *)next_chunk + FREE_SPACE_OFFSET + next_chunk_free_size) = next_chunk_free_size;
 
 				add_to_free_list(next_chunk);
 
 				chunk->size_status = alloc_size | 1;
-				*(uint32_t *)((uint8_t *)chunk + alloc_size) = alloc_size | 1;
+				*(uint32_t *)((uint8_t *)chunk + FREE_SPACE_OFFSET + alloc_size) = alloc_size;
 
 				return (uint8_t *)chunk + FREE_SPACE_OFFSET;
 			}
@@ -164,7 +164,7 @@ static kos_memblk_chunk_t *get_next_chunk(kos_memblk_chunk_t *chunk)
 {
 	if(chunk < HEAP_BOTTOM_ADDR) {
 		uint32_t chunk_size = (chunk->size_status >> 1) << 1;
-		return (kos_memblk_chunk_t *)((uint8_t *)chunk + FREE_SPACE_OFFSET + chunk_size + 4);
+		return (kos_memblk_chunk_t *)((uint8_t *)chunk + FREE_SIZE_MARGIN + chunk_size);
 	}
 	return NULL;
 }
@@ -200,6 +200,10 @@ void kos_free_nolock(kos_vp_t p)
 					FREE_SIZE_MARGIN + chunk->size_status + FREE_SIZE_MARGIN + next_chunk->size_status;
 
 			*(uint32_t *)((uint8_t*)prev_chunk + FREE_SPACE_OFFSET + prev_chunk->size_status) = prev_chunk->size_status;
+
+			if(g_kos_heap_free_chunk_top == NULL) {
+				g_kos_heap_free_chunk_top = prev_chunk;
+			}
 
 		} else if(prev_is_free) {
 			prev_chunk->size_status = prev_chunk->size_status + FREE_SIZE_MARGIN + chunk->size_status;

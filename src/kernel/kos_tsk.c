@@ -102,6 +102,7 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 	tcb->st.wupcnt		= 0;
 	tcb->st.suscnt		= 0;
 	tcb->sp				= KOS_NULL;
+	tcb->ctsk.stksz		= (tcb->ctsk.stksz >> 2) << 2;
 	if(tcb->ctsk.stk != NULL) {
 		tcb->sp_top		= tcb->ctsk.stk;
 	} else {

@@ -15,7 +15,7 @@
 -----------------------------------------------------------------------------*/
 #ifdef KOS_CFG_SPT_SEM
 
-#define CB_TO_INDEX(cb)			(((uintptr_t)cb - (uintptr_t)g_kos_sem_cb) / sizeof(kos_sem_cb_t))
+#define CB_TO_INDEX(cb)			(((uintptr_t)cb - (uintptr_t)g_kos_sem_cb_inst) / sizeof(kos_sem_cb_t))
 #define kos_get_sem_cb(semid)	(g_kos_sem_cb[(semid) - 1])
 
 kos_er_id_t kos_cre_sem(const kos_csem_t *pk_csem)

@@ -15,7 +15,7 @@
 -----------------------------------------------------------------------------*/
 #ifdef KOS_CFG_SPT_FLG
 
-#define CB_TO_INDEX(cb)			(((uintptr_t)cb - (uintptr_t)g_kos_flg_cb) / sizeof(kos_flg_cb_t))
+#define CB_TO_INDEX(cb)			(((uintptr_t)cb - (uintptr_t)g_kos_flg_cb_inst) / sizeof(kos_flg_cb_t))
 #define kos_get_flg_cb(flgid)	(g_kos_flg_cb[(flgid) - 1])
 
 kos_er_id_t kos_cre_flg(const kos_cflg_t *pk_cflg)

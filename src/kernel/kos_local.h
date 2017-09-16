@@ -87,6 +87,7 @@ struct kos_dtq_cb_t {
 	kos_uint_t			sdtqcnt;
 	kos_list_t			r_wait_tsk_list;
 	kos_list_t			s_wait_tsk_list;
+	kos_vp_t			dtq;
 };
 
 struct kos_cyc_cb_t {
