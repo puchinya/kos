@@ -28,7 +28,7 @@ void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx)
 {	
 	kos_uint_t *sp;
 	
-	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->ctsk.stk + tcb->ctsk.stksz - 16*4);
+	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->sp_top + tcb->ctsk.stksz - 16*4);
 	sp[0] = 0;								// R4
 	sp[1] = 0;								// R5
 	sp[2] = 0;								// R6
@@ -102,10 +102,25 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 	tcb->st.wupcnt		= 0;
 	tcb->st.suscnt		= 0;
 	tcb->sp				= KOS_NULL;
+	if(tcb->ctsk.stk != NULL) {
+		tcb->sp_top		= tcb->ctsk.stk;
+	} else {
+		kos_vp_t sp_top = kos_alloc_nolock(tcb->ctsk.stksz);
+		if(sp_top == NULL) {
+			/* 登録解除 */
+			g_kos_tcb[empty_index] = KOS_NULL;
+#ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
+			kos_list_insert_prev(&g_kos_tcb_unused_list, (kos_list_t *)tcb);
+#endif
+			er_id = KOS_E_NOMEM;
+			goto end;
+		}
+		tcb->sp_top	= sp_top;
+	}
 	
 	tcb->id = empty_index + 1;
 #ifdef KOS_CFG_STKCHK
-	memset(tcb->ctsk.stk, 0xCC, tcb->ctsk.stksz);
+	memset(tcb->sp_top, 0xCC, tcb->ctsk.stksz);
 #endif
 
 	if(ctsk->tskatr & KOS_TA_ACT) {
@@ -152,6 +167,10 @@ kos_er_t kos_del_tsk(kos_id_t tskid)
 		goto end;
 	}
 	
+	if(tcb->ctsk.stk == NULL) {
+		kos_free_nolock(tcb->sp_top);
+	}
+
 	/* 登録解除 */
 	g_kos_tcb[tskid - 1] = KOS_NULL;
 #ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH

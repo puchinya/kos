@@ -323,28 +323,30 @@ void kos_init_regs(void)
 	__set_CONTROL(2);
 }
 
-void kos_init(void)
+kos_er_t kos_init_kernel(void)
 {
-	kos_lock;
+//	kos_lock;
 	
 	kos_init_vars();
 	kos_init_regs();
-	kos_usr_init();
+	kos_init_heap();
+	
+//	kos_unlock;
+
+	return KOS_E_OK;
+}
+
+kos_er_t kos_start_kernel(void)
+{
 #ifdef KOS_ARCH_CFG_SPT_SYSTICK
 	kos_arch_setup_systick_handler();
 #endif
-	
-	kos_unlock;
-}
 
-void kos_start_kernel(void)
-{
-	/* initialize kernel */
-	kos_init();
-	
 	/* enable dispatch */
 	kos_ena_dsp();
 	
 	/* idle */
 	kos_arch_idle();
+
+	return KOS_E_OK;
 }

@@ -35,6 +35,7 @@ kos_er_t kos_rot_rdq(kos_pri_t tskpri)
 		kos_list_t *rdy_que_i;
 		
 		rdy_que_i = &g_kos_rdy_que[(kos_int_t)tskpri - 1];
+		
 		if(kos_list_empty(rdy_que_i)) {
 			tcb = rdy_que_i->next;
 			kos_list_remove(tcb);

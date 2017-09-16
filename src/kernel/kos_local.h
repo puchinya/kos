@@ -15,10 +15,10 @@
 #include "kos.h"
 #include "kos_arch.h"
 
-#define KOS_LOCK_PORT_HI()	GPIOB->BSRRL = 0x0080
-#define KOS_LOCK_PORT_LO()	GPIOB->BSRRH = 0x0080
-#define KOS_SCHD_PORT_HI()	GPIOB->BSRRL = 0x0100
-#define KOS_SCHD_PORT_LO()	GPIOB->BSRRH = 0x0100
+#define KOS_LOCK_PORT_HI()	//GPIOB->BSRRL = 0x0080
+#define KOS_LOCK_PORT_LO()	//GPIOB->BSRRH = 0x0080
+#define KOS_SCHD_PORT_HI()	//GPIOB->BSRRL = 0x0100
+#define KOS_SCHD_PORT_LO()	//GPIOB->BSRRH = 0x0100
 
 
 #ifdef KOS_CFG_FAST_IRQ
@@ -55,6 +55,7 @@ struct kos_tcb_t {
 	kos_list_t			wait_list;	/* RDYキューまたは待機リストに対してつなぐリスト */
 	kos_list_t			tmo_list;	/* タイムアウトのためにつなぐリスト */
 	void				*sp;		/* current stack pointer */
+	kos_vp_t			sp_top;
 	kos_id_t			id;			/* task id */
 	kos_ctsk_t			ctsk;		/* task create parameters */
 	kos_rtsk_t			st;
@@ -208,9 +209,6 @@ static KOS_INLINE int kos_list_empty(kos_list_t *l)
 #define kos_itsk_dsp()
 #endif
 
-void kos_init(void);
-void kos_start_kernel(void);
-
 #ifndef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
 kos_int_t kos_find_null(void **a, int len);
 #endif
@@ -231,8 +229,10 @@ kos_bool_t kos_cancel_wait_all_for_delapi_nolock(kos_list_t *wait_tsk_list);
 void kos_init_cyc(void);
 void kos_process_cyc(void);
 
-/* usr_init.c */
-void kos_usr_init(void);
+/* kos_heap.c */
+kos_er_t kos_init_heap(void);
+kos_vp_t kos_alloc_nolock(kos_size_t size);
+void kos_free_nolock(kos_vp_t p);
 
 /* debug message */
 //#define KOS_ENA_DBG_MSG

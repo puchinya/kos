@@ -149,6 +149,10 @@ typedef struct {
 	kos_bool_t		dpn;
 } kos_rsys_t;
 
+/* OS初期化 */
+kos_er_t kos_init_kernel(void);
+kos_er_t kos_start_kernel(void);
+
 /* タスク管理機能 */
 kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk) __attribute__((__nonnull__(1)));
 kos_er_t kos_del_tsk(kos_id_t tskid);

@@ -13,12 +13,14 @@
 /*-----------------------------------------------------------------------------
 	initialize rutine
 -----------------------------------------------------------------------------*/
+/*
 int main(void)
 {
 	kos_start_kernel();
 	
 	return 0;
 }
+*/
 
 #ifdef __GNUC__
 void kos_arch_idle(void)
@@ -41,7 +43,7 @@ void kos_arch_setup_systick_handler(void)
 	
 	NVIC_SetPriority(PendSV_IRQn, KOS_ARCH_PRENSV_PRI);
 	
-	period = SystemCoreClock / 2 / 100;
+	period = SystemCoreClock / 1000;
 	SysTick_Config(period);
 	
 	NVIC_SetPriority(SysTick_IRQn, KOS_ARCH_SYSTICK_PRI);
