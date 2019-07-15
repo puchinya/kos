@@ -7,53 +7,62 @@ extern const void *_eheap;
 #define HEAP_TOP_ADDR		(&_sheap)
 #define HEAP_BOTTOM_ADDR	(&_eheap)
 
-#define ILLEGAL_FREE_CHECK_MAGIC 0xFE653245
-
 typedef struct kos_memblk_chunk_t {
-#ifdef KOS_CFG_HEAP_ILLEGAL_FREE_CHECK
-	uint32_t magic;
-#endif
-	uint32_t size_status;
+	uint32_t cur_chunk_size;
+	uint32_t prev_chunk_size;
 	struct kos_memblk_chunk_t *prev_free_chunk;
 	struct kos_memblk_chunk_t *next_free_chunk;
-} kos_memblk_chunk_t;
+} __attribute__((__packed__)) kos_memblk_chunk_t;
 
-#ifdef KOS_CFG_HEAP_ILLEGAL_FREE_CHECK
-#define FREE_CHUNK_MIN_SIZE	(16 + 4)
-#define FREE_SPACE_OFFSET	8
-#define FREE_SIZE_MARGIN	(FREE_SPACE_OFFSET + 4)
-#else
-#define FREE_CHUNK_MIN_SIZE	(12 + 4)
-#define FREE_SPACE_OFFSET	4
-#define FREE_SIZE_MARGIN	(FREE_SPACE_OFFSET + 4)
-#endif
+#define HEAP_MAX_CHUNK_SIZE		((65535 >> 3))
+#define HEAP_MIN_CHUNK_SIZE		16
+#define HEAP_CHUNK_DATA_OFFSET	8
+
+#define HEAP_ALLOC_FLAG			1
+
+#define HEAP_CHUNK_TO_DATA_PTR(chunk)		((uint8_t *)(chunk) + HEAP_CHUNK_DATA_OFFSET)
+#define HEAP_DATA_PTR_TO_CHUNK(data_ptr)	((kos_memblk_chunk_t *)((uint8_t *)(data_ptr) - HEAP_CHUNK_DATA_OFFSET))
+
+#define HEAP_FIX_ALLOC_SIZE(val)			(((val) + 7) & ~7)
+#define HEAP_GET_PREV_CHUNK_SIZE(chunk)	((uint32_t)(chunk)->prev_chunk_size)
+#define HEAP_GET_CUR_CHUNK_SIZE(chunk)	((uint32_t)(chunk)->cur_chunk_size)
+#define HEAP_SET_PREV_CHUNK_SIZE(chunk, val)	((chunk)->prev_chunk_size = val)
+#define HEAP_SET_CUR_CHUNK_SIZE_FREE(chunk, val)		((chunk)->cur_chunk_size = val)
+#define HEAP_SET_CUR_CHUNK_SIZE_ALLOC(chunk, val)		((chunk)->cur_chunk_size = val | HEAP_ALLOC_FLAG)
+#define HEAP_CHUNK_MIN_ADDR				((uint8_t *)(HEAP_BOTTOM_ADDR))
+#define HEAP_CHUNK_MAX_ADDR				((uint8_t *)(HEAP_BOTTOM_ADDR) - HEAP_CHUNK_DATA_OFFSET)
+#define HEAP_IS_VALID_CHUNK_ADDR(chunk)	((uintptr_t)HEAP_CHUNK_MIN_ADDR <= (uintptr_t)(chunk) && (uintptr_t)(chunk) <= (uintptr_t)HEAP_CHUNK_MAX_ADDR)
+#define HEAP_CLR_CHUNK_ALLOC_FLAG(chunk)	((chunk)->cur_chunk_size &= ~1)
+#define HEAP_SET_CHUNK_ALLOC_FLAG(chunk)	((chunk)->cur_chunk_size |= 1)
+#define HEAP_IS_FREE_CHUNK(chunk)			(!((chunk)->cur_chunk_size & 1))
 
 kos_memblk_chunk_t *g_kos_heap_free_chunk_top = NULL;
 
+static kos_memblk_chunk_t *get_next_chunk(kos_memblk_chunk_t *chunk);
+static kos_memblk_chunk_t *get_prev_chunk(kos_memblk_chunk_t *chunk);
+static void add_to_free_list(kos_memblk_chunk_t *chunk);
+static void unlink_from_free_list(kos_memblk_chunk_t *chunk);
+
 kos_er_t kos_init_heap(void)
 {
-	kos_vp_int_t heap_size;
-	uint32_t free_size;
+	uint32_t heap_size;
 
 	if(HEAP_BOTTOM_ADDR <= HEAP_TOP_ADDR) {
 		return KOS_E_NOMEM;
 	}
 
-	heap_size = (kos_vp_int_t)HEAP_BOTTOM_ADDR - (kos_vp_int_t)HEAP_TOP_ADDR;
+	heap_size = (uint32_t)((uintptr_t)HEAP_BOTTOM_ADDR - (uintptr_t)HEAP_TOP_ADDR);
 
-	if(heap_size < FREE_CHUNK_MIN_SIZE) {
+	if(heap_size < HEAP_MIN_CHUNK_SIZE) {
 		return KOS_E_NOMEM;
 	}
 
 	kos_memblk_chunk_t *chunk = (kos_memblk_chunk_t *)HEAP_TOP_ADDR;
-#ifdef KOS_CFG_HEAP_ILLEGAL_FREE_CHECK
-	chunk->magic = ILLEGAL_FREE_CHECK_MAGIC;
-#endif
-	free_size = heap_size - FREE_SIZE_MARGIN;
-	chunk->size_status = free_size;
+
+	HEAP_SET_CUR_CHUNK_SIZE_FREE(chunk, heap_size);
+	HEAP_SET_PREV_CHUNK_SIZE(chunk, 0);
 	chunk->prev_free_chunk = NULL;
 	chunk->next_free_chunk = NULL;
-	*(uint32_t *)((uint8_t *)chunk + FREE_SPACE_OFFSET + free_size) = free_size;
 
 	g_kos_heap_free_chunk_top = chunk;
 
@@ -77,63 +86,65 @@ static void unlink_from_free_list(kos_memblk_chunk_t *chunk)
 
 static void add_to_free_list(kos_memblk_chunk_t *chunk)
 {
-	chunk->next_free_chunk = NULL;
 	chunk->prev_free_chunk = NULL;
 
 	if(g_kos_heap_free_chunk_top == NULL) {
-		g_kos_heap_free_chunk_top = chunk;
+		chunk->next_free_chunk = NULL;
 	} else {
 		g_kos_heap_free_chunk_top->prev_free_chunk = chunk;
 		chunk->next_free_chunk = g_kos_heap_free_chunk_top;
-		g_kos_heap_free_chunk_top = chunk;
 	}
+
+	g_kos_heap_free_chunk_top = chunk;
 }
 
 kos_vp_t kos_alloc_nolock(kos_size_t size)
 {
 	kos_memblk_chunk_t *chunk;
-	uint32_t alloc_size;
+	uint32_t req_chunk_size;
 
-	alloc_size = (uint32_t)((size + 7) & ~7);
+	req_chunk_size = HEAP_FIX_ALLOC_SIZE(size + HEAP_CHUNK_DATA_OFFSET);
+	if(req_chunk_size > HEAP_MAX_CHUNK_SIZE) {
+		return NULL;
+	}
+	if(req_chunk_size < HEAP_MIN_CHUNK_SIZE) {
+		req_chunk_size = HEAP_MIN_CHUNK_SIZE;
+	}
+
 	chunk = (kos_memblk_chunk_t *)g_kos_heap_free_chunk_top;
 
 	while(chunk != NULL) {
-		if(chunk->size_status >= alloc_size) {
+		if((uint32_t)chunk->cur_chunk_size >= req_chunk_size) {
 			uint32_t rem_size;
 
-			unlink_from_free_list(chunk);
+			/* チャンクの分割が必要かを確認 */
+			rem_size = HEAP_GET_CUR_CHUNK_SIZE(chunk) - req_chunk_size;
 
-			rem_size = chunk->size_status - alloc_size;
-			if(rem_size <= FREE_CHUNK_MIN_SIZE) {
+			if(rem_size <= HEAP_MIN_CHUNK_SIZE) {
+				/* 分割が不要なら、フリーチャンクリストから削除して、確保済にして終わり */
 
-				chunk->size_status |= 1;
+				unlink_from_free_list(chunk);
 
-				if(chunk == g_kos_heap_free_chunk_top) {
-					if(chunk->next_free_chunk != NULL) {
-						g_kos_heap_free_chunk_top = chunk->next_free_chunk;
-					} else {
-						g_kos_heap_free_chunk_top = NULL;
-					}
+				HEAP_SET_CHUNK_ALLOC_FLAG(chunk);
+
+				return HEAP_CHUNK_TO_DATA_PTR(chunk);
+			} else {
+				/* 分割を行う */
+
+				kos_memblk_chunk_t *next_chunk = get_next_chunk(chunk);
+
+				/* 確保するチャンクは分割後の後ろ側にする */
+				kos_memblk_chunk_t *alloc_chunk = (kos_memblk_chunk_t *)((uint8_t *)chunk + rem_size);
+
+				HEAP_SET_CUR_CHUNK_SIZE_FREE(chunk, rem_size);
+				HEAP_SET_CUR_CHUNK_SIZE_ALLOC(alloc_chunk, req_chunk_size);
+				HEAP_SET_PREV_CHUNK_SIZE(alloc_chunk, rem_size);
+
+				if(next_chunk != NULL) {
+					HEAP_SET_PREV_CHUNK_SIZE(next_chunk, req_chunk_size);
 				}
 
-				return (uint8_t *)chunk + FREE_SPACE_OFFSET;
-			} else {
-				uint32_t next_chunk_free_size;
-				kos_memblk_chunk_t *next_chunk = (kos_memblk_chunk_t *)((uint8_t *)chunk + FREE_SIZE_MARGIN + alloc_size);
-
-				next_chunk_free_size = rem_size - FREE_SIZE_MARGIN;
-#ifdef KOS_CFG_HEAP_ILLEGAL_FREE_CHECK
-				next_chunk->magic = ILLEGAL_FREE_CHECK_MAGIC;
-#endif
-				next_chunk->size_status = next_chunk_free_size;
-				*(uint32_t *)((uint8_t *)next_chunk + FREE_SPACE_OFFSET + next_chunk_free_size) = next_chunk_free_size;
-
-				add_to_free_list(next_chunk);
-
-				chunk->size_status = alloc_size | 1;
-				*(uint32_t *)((uint8_t *)chunk + FREE_SPACE_OFFSET + alloc_size) = alloc_size;
-
-				return (uint8_t *)chunk + FREE_SPACE_OFFSET;
+				return HEAP_CHUNK_TO_DATA_PTR(alloc_chunk);
 			}
 		}
 
@@ -143,82 +154,113 @@ kos_vp_t kos_alloc_nolock(kos_size_t size)
 	return NULL;
 }
 
-static KOS_INLINE int is_free_chunk(kos_memblk_chunk_t *chunk)
-{
-	if(chunk == NULL) {
-		return 0;
-	}
-	return (chunk->size_status & 1) == 0 ? 1 : 0;
-}
-
 static kos_memblk_chunk_t *get_prev_chunk(kos_memblk_chunk_t *chunk)
 {
-	if(HEAP_TOP_ADDR < chunk) {
-		uint32_t prev_chunk_free_size = *(uint32_t *)((uint8_t *)chunk - 4);
-		return (kos_memblk_chunk_t *)((uint8_t *)chunk - prev_chunk_free_size - FREE_SIZE_MARGIN);
+	kos_memblk_chunk_t *prev_chunk = (kos_memblk_chunk_t *)((uint8_t *)chunk + HEAP_GET_PREV_CHUNK_SIZE(chunk));
+	if((uint8_t *)prev_chunk < HEAP_CHUNK_MIN_ADDR) {
+		return NULL;
 	}
-	return NULL;
+
+	return prev_chunk;
 }
 
 static kos_memblk_chunk_t *get_next_chunk(kos_memblk_chunk_t *chunk)
 {
-	if(chunk < HEAP_BOTTOM_ADDR) {
-		uint32_t chunk_size = (chunk->size_status >> 1) << 1;
-		return (kos_memblk_chunk_t *)((uint8_t *)chunk + FREE_SIZE_MARGIN + chunk_size);
+	kos_memblk_chunk_t *next_chunk = (kos_memblk_chunk_t *)((uint8_t *)chunk + HEAP_GET_CUR_CHUNK_SIZE(chunk));
+	if((uint8_t *)next_chunk > HEAP_CHUNK_MAX_ADDR) {
+		return NULL;
 	}
-	return NULL;
+
+	return next_chunk;
 }
 
 void kos_free_nolock(kos_vp_t p)
 {
-	uint32_t free_size;
-	kos_memblk_chunk_t *chunk = (kos_memblk_chunk_t *)((uint8_t *)p - FREE_SPACE_OFFSET);
-	if(!(HEAP_TOP_ADDR <= chunk && chunk <= HEAP_BOTTOM_ADDR - FREE_SPACE_OFFSET)) {
+	kos_memblk_chunk_t *chunk = HEAP_DATA_PTR_TO_CHUNK(p);
+
+	if(!HEAP_IS_VALID_CHUNK_ADDR(chunk)) {
 		return;
 	}
-#ifdef KOS_CFG_HEAP_ILLEGAL_FREE_CHECK
-	if(chunk->magic != ILLEGAL_FREE_CHECK_MAGIC) {
+
+	if(HEAP_IS_FREE_CHUNK(chunk)) {
 		return;
 	}
-#endif
 
 	/* 確保ビットを落とす */
-	chunk->size_status = (chunk->size_status >> 1) << 1;
+	HEAP_CLR_CHUNK_ALLOC_FLAG(chunk);
 
+	/* 前後のチャンクとマージできるなら、マージする */
 	{
 		kos_memblk_chunk_t *next_chunk = get_next_chunk(chunk);
 		kos_memblk_chunk_t *prev_chunk = get_prev_chunk(chunk);
 
-		int prev_is_free = is_free_chunk(prev_chunk);
-		int next_is_free = is_free_chunk(next_chunk);
+		int prev_is_free = prev_chunk != NULL && HEAP_IS_FREE_CHUNK(prev_chunk);
+		int next_is_free = next_chunk != NULL && HEAP_IS_FREE_CHUNK(next_chunk);
 
-		if(prev_is_free && next_is_free) {
+		if(prev_is_free) {
+			/* 前方のチャンクとマージ */
 
-			unlink_from_free_list(next_chunk);
+			uint32_t new_chunk_size = HEAP_GET_CUR_CHUNK_SIZE(prev_chunk) + HEAP_GET_CUR_CHUNK_SIZE(chunk);
+			HEAP_SET_CUR_CHUNK_SIZE_FREE(prev_chunk, new_chunk_size);
 
-			prev_chunk->size_status = prev_chunk->size_status +
-					FREE_SIZE_MARGIN + chunk->size_status + FREE_SIZE_MARGIN + next_chunk->size_status;
-
-			*(uint32_t *)((uint8_t*)prev_chunk + FREE_SPACE_OFFSET + prev_chunk->size_status) = prev_chunk->size_status;
-
-			if(g_kos_heap_free_chunk_top == NULL) {
-				g_kos_heap_free_chunk_top = prev_chunk;
+			/* 後方にチャンクがあれば、そのチャンクの前方チャンクサイズを更新 */
+			if(next_chunk != NULL) {
+				HEAP_SET_PREV_CHUNK_SIZE(next_chunk, new_chunk_size);
 			}
+		} else if(prev_is_free && next_is_free) {
+			/* 前後のチャンク両方とのマージ */
 
-		} else if(prev_is_free) {
-			prev_chunk->size_status = prev_chunk->size_status + FREE_SIZE_MARGIN + chunk->size_status;
-			*(uint32_t *)((uint8_t*)prev_chunk + FREE_SPACE_OFFSET + prev_chunk->size_status) = prev_chunk->size_status;
-		} else if(next_is_free) {
+			kos_memblk_chunk_t *next_next_chunk = get_next_chunk(next_chunk);
 
 			unlink_from_free_list(next_chunk);
 
-			chunk->size_status = chunk->size_status + next_chunk->size_status + FREE_SIZE_MARGIN;
-			*(uint32_t *)((uint8_t*)chunk + FREE_SPACE_OFFSET + chunk->size_status) = chunk->size_status;
+			uint32_t new_chunk_size = HEAP_GET_CUR_CHUNK_SIZE(prev_chunk) + HEAP_GET_CUR_CHUNK_SIZE(chunk) + HEAP_GET_CUR_CHUNK_SIZE(next_chunk);
+
+			HEAP_SET_CUR_CHUNK_SIZE_FREE(prev_chunk, new_chunk_size);
+
+			/* 後方にチャンクがあれば、そのチャンクの前方チャンクサイズを更新 */
+			if(next_next_chunk != NULL) {
+				HEAP_SET_PREV_CHUNK_SIZE(next_next_chunk, new_chunk_size);
+			}
+		} else if(next_is_free) {
+			/* 後方のチャンクとマージ */
+			kos_memblk_chunk_t *next_next_chunk = get_next_chunk(next_chunk);
+
+			unlink_from_free_list(next_chunk);
+
+			uint32_t new_chunk_size = HEAP_GET_CUR_CHUNK_SIZE(chunk) + HEAP_GET_CUR_CHUNK_SIZE(next_chunk);
+			HEAP_SET_CUR_CHUNK_SIZE_FREE(chunk, new_chunk_size);
+
+			/* 後方にチャンクがあれば、そのチャンクの前方チャンクサイズを更新 */
+			if(next_next_chunk != NULL) {
+				HEAP_SET_PREV_CHUNK_SIZE(next_next_chunk, new_chunk_size);
+			}
 
 			add_to_free_list(chunk);
 
 		} else {
+			/* マージするチャンクがなければ、フリーチャンクリストに繋いで終わり */
 			add_to_free_list(chunk);
 		}
 	}
+}
+
+kos_vp_t kos_alloc(kos_size_t size)
+{
+	kos_vp_t p;
+
+	kos_bool_t sns = kos_sns_dsp();
+	kos_dis_dsp();
+	p = kos_alloc_nolock(size);
+	if(!sns) kos_ena_dsp();
+
+	return p;
+}
+
+void kos_free(kos_vp_t p)
+{
+	kos_bool_t sns = kos_sns_dsp();
+	kos_dis_dsp();
+	kos_free_nolock(p);
+	if(!sns) kos_ena_dsp();
 }

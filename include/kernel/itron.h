@@ -203,6 +203,13 @@
 #define stp_cyc		kos_stp_cyc
 #define ref_cyc		kos_ref_cyc
 
+
+#define acre_mtx	kos_cre_mtx
+#define del_mtx		kos_del_mtx
+#define loc_mtx		kos_loc_mtx
+#define iloc_mtx	kos_iloc_mtx
+#define ploc_mtx	kos_ploc_mtx
+
 #define rot_rdq		kos_rot_rdq
 #define irot_rdq	kos_irot_rdq
 #define get_tid		kos_get_tid

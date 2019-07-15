@@ -40,6 +40,7 @@ typedef struct kos_sem_cb_t kos_sem_cb_t;
 typedef struct kos_flg_cb_t kos_flg_cb_t;
 typedef struct kos_dtq_cb_t kos_dtq_cb_t;
 typedef struct kos_cyc_cb_t kos_cyc_cb_t;
+typedef struct kos_mtx_cb_t kos_mtx_cb_t;
 
 struct kos_list_t {
 	kos_list_t	*next, *prev;
@@ -61,6 +62,9 @@ struct kos_tcb_t {
 	kos_rtsk_t			st;
 	kos_vp_t			wait_exinf;	/* 待ち状態のときに格納する拡張情報(同期・通信API実装で使用) */
 	kos_er_t			rel_wai_er;
+#ifdef KOS_CFG_SPT_MTX
+	kos_list_t			loc_mtx_list;	/* ロックを獲得しているmtxのリスト */
+#endif
 };
 
 struct kos_sem_cb_t {
@@ -96,6 +100,14 @@ struct kos_cyc_cb_t {
 	kos_rcyc_t			st;
 };
 
+struct kos_mtx_cb_t {
+	kos_cmtx_t			cmtx;
+	kos_list_t			wait_tsk_list;
+	kos_tcb_t			*htsk_tcb;
+	kos_list_t			htsk_list;
+	kos_uint_t			loc_cnt;
+};
+
 extern kos_tcb_t 	*g_kos_cur_tcb;
 extern kos_list_t	g_kos_rdy_que[];
 extern kos_dinh_t	g_kos_dinh_list[];
@@ -105,12 +117,14 @@ extern kos_sem_cb_t	*g_kos_sem_cb[];
 extern kos_flg_cb_t	*g_kos_flg_cb[];
 extern kos_dtq_cb_t	*g_kos_dtq_cb[];
 extern kos_cyc_cb_t	*g_kos_cyc_cb[];
+extern kos_mtx_cb_t	*g_kos_mtx_cb[];
 
 extern kos_tcb_t	g_kos_tcb_inst[];
 extern kos_sem_cb_t	g_kos_sem_cb_inst[];
 extern kos_flg_cb_t	g_kos_flg_cb_inst[];
 extern kos_dtq_cb_t	g_kos_dtq_cb_inst[];
 extern kos_cyc_cb_t	g_kos_cyc_cb_inst[];
+extern kos_mtx_cb_t	g_kos_mtx_cb_inst[];
 extern kos_tcb_t	g_kos_idle_tcb_inst;
 
 #ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
@@ -132,6 +146,10 @@ extern kos_id_t		g_kos_last_dtqid;
 extern kos_list_t	g_kos_cyc_cb_unused_list;
 extern kos_id_t		g_kos_last_cycid;
 #endif
+#ifdef KOS_CFG_SPT_MTX
+extern kos_list_t	g_kos_mtx_cb_unused_list;
+extern kos_id_t		g_kos_last_mtxid;
+#endif
 #endif
 
 extern kos_uint_t	g_kos_isr_stk[];
@@ -146,6 +164,7 @@ extern const kos_uint_t g_kos_max_sem;
 extern const kos_uint_t g_kos_max_flg;
 extern const kos_uint_t g_kos_max_dtq;
 extern const kos_uint_t g_kos_max_cyc;
+extern const kos_uint_t g_kos_max_mtx;
 extern const kos_uint_t g_kos_max_pri;
 extern const kos_uint_t g_kos_max_intno;
 extern const kos_uint_t	g_kos_isr_stksz;
@@ -217,6 +236,7 @@ kos_int_t kos_find_null(void **a, int len);
 void kos_process_tmo(void);
 void kos_rdy_tsk_nolock(kos_tcb_t *tcb);
 void kos_wait_nolock(kos_tcb_t *tcb);
+void kos_remove_from_wait_list_nolock(kos_tcb_t *tcb);
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er);
 
 void kos_schedule_nolock(void);
@@ -233,7 +253,11 @@ void kos_process_cyc(void);
 /* kos_heap.c */
 kos_er_t kos_init_heap(void);
 kos_vp_t kos_alloc_nolock(kos_size_t size);
+kos_vp_t kos_alloc_stack_nolock(kos_size_t size);
 void kos_free_nolock(kos_vp_t p);
+
+/* kos_mtx.c */
+kos_er_t kos_unl_mtx_core(kos_mtx_cb_t *cb);
 
 /* debug message */
 //#define KOS_ENA_DBG_MSG

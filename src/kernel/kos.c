@@ -129,6 +129,22 @@ void kos_wait_nolock(kos_tcb_t *tcb)
 	kos_force_tsk_dsp();
 }
 
+void kos_remove_from_wait_list_nolock(kos_tcb_t *tcb)
+{
+	/* タイムアウトリストから解除 */
+	if(tcb->st.lefttmo != KOS_TMO_FEVR) {
+		kos_list_remove(&tcb->tmo_list);
+		tcb->st.lefttmo = 0;	/* 必須ではない */
+	}
+	/* 待ちオブジェクトから削除 */
+	if(tcb->st.wobjid != 0) {
+		kos_list_remove(&tcb->wait_list);
+		tcb->st.wobjid = 0;	/* 必須ではない */
+	}
+
+	tcb->st.tskwait = 0;	/* 必須ではない */
+}
+
 void kos_cancel_wait_nolock(kos_tcb_t *tcb, kos_er_t er)
 {
 	/* エラーコードを設定 */

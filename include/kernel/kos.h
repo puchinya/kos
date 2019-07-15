@@ -88,6 +88,7 @@ typedef unsigned int	kos_reltim_t;
 #define KOS_TA_TFIFO	0x00
 #define KOS_TA_TPRI		0x01
 #define KOS_TA_ACT		0x02
+#define KOS_TA_REC		0x1F /* ミューテックスの多重ロックを許可する。 */
 
 #define KOS_TMO_POL		0
 #define KOS_TMO_FEVR	-1
@@ -113,7 +114,8 @@ typedef unsigned int	kos_reltim_t;
 #define KOS_TTW_FLG		0x0008
 #define KOS_TTW_SDTQ	0x0010
 #define KOS_TTW_RDTQ	0x0020
-#define KOS_TTW_MBX		0x0080
+#define KOS_TTW_MBX		0x0040
+#define KOS_TTW_MTX		0x0080
 
 typedef struct {
 	kos_atr_t		tskatr;
@@ -271,6 +273,21 @@ kos_er_t kos_ref_dtq(kos_id_t dtqid, kos_rdtq_t *pk_rdtq);
 
 /* mbx */
 
+/* mtx */
+#ifdef KOS_CFG_SPT_MTX
+typedef struct {
+	kos_atr_t		mtxatr;
+	kos_pri_t		ceilpri;
+} kos_cmtx_t;
+
+kos_er_id_t kos_cre_mtx(const kos_cmtx_t *pk_cmtx);
+kos_er_t kos_del_mtx(kos_id_t mtxid);
+kos_er_t kos_tloc_mtx(kos_id_t mtxid, kos_tmo_t tmout);
+static KOS_INLINE kos_er_t kos_loc_mtx(kos_id_t mtxid) { return kos_tloc_mtx(mtxid, KOS_TMO_FEVR); }
+static KOS_INLINE kos_er_t kos_ploc_mtx(kos_id_t mtxid) { return kos_tloc_mtx(mtxid, KOS_TMO_POL); }
+kos_er_t kos_unl_mtx(kos_id_t mtxid);
+
+#endif
 
 /* other */
 
@@ -349,6 +366,9 @@ kos_er_t kos_vget_intpri(kos_intno_t intno, kos_intpri_t *p_intpri);
 kos_er_t kos_chg_imsk(kos_intpri_t imsk);
 kos_er_t kos_get_imsk(kos_intpri_t *p_imsk);
 #endif
+
+kos_vp_t kos_alloc(kos_size_t size);
+void kos_free(kos_vp_t p);
 
 #ifdef KOS_ARCH_STK_ALIGN
 #if defined(__ARMCC_VERSION)

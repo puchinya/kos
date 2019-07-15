@@ -18,7 +18,7 @@
 
 static kos_list_t s_cyc_list;				/* アクティブな周期ハンドラのリスト */
 
-#define CB_TO_INDEX(cb)			(((uintptr_t)cb - (uintptr_t)g_kos_cyc_cb) / sizeof(kos_cyc_cb_t))
+#define CB_TO_INDEX(cb)			(((uintptr_t)cb - (uintptr_t)g_kos_cyc_cb_inst) / sizeof(kos_cyc_cb_t))
 #define kos_get_cyc_cb(cycid)	(g_kos_cyc_cb[(cycid) - 1])
 
 void kos_init_cyc(void)

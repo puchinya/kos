@@ -28,7 +28,7 @@ void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx)
 {	
 	kos_uint_t *sp;
 	
-	tcb->sp = sp = (uint32_t *)((uint8_t *)tcb->sp_top + tcb->ctsk.stksz - 16*4);
+	tcb->sp = sp = (kos_uint_t *)((uint8_t *)tcb->sp_top + tcb->ctsk.stksz - 16*4);
 	sp[0] = 0;								// R4
 	sp[1] = 0;								// R5
 	sp[2] = 0;								// R6
@@ -60,6 +60,10 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 	kos_int_t empty_index;
 	kos_er_id_t er_id;
 	
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(ctsk->stksz < 100 || ctsk->task == NULL)
+		return KOS_E_PAR;
+#endif
 	kos_lock;
 	
 #ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
@@ -102,7 +106,7 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 	tcb->st.wupcnt		= 0;
 	tcb->st.suscnt		= 0;
 	tcb->sp				= KOS_NULL;
-	tcb->ctsk.stksz		= (tcb->ctsk.stksz >> 2) << 2;
+	tcb->ctsk.stksz		= (tcb->ctsk.stksz >> 3) <<3;
 	if(tcb->ctsk.stk != NULL) {
 		tcb->sp_top		= tcb->ctsk.stk;
 	} else {
@@ -124,6 +128,10 @@ kos_er_id_t kos_cre_tsk(const kos_ctsk_t *ctsk)
 	memset(tcb->sp_top, 0xCC, tcb->ctsk.stksz);
 #endif
 
+#ifdef KOS_CFG_SPT_MTX
+	kos_list_init(&tcb->loc_mtx_list);
+#endif
+
 	if(ctsk->tskatr & KOS_TA_ACT) {
 		tcb->st.actcnt = 1;
 		kos_local_act_tsk_impl_nolock(tcb, KOS_FALSE);
@@ -136,6 +144,27 @@ end:
 	return er_id;
 }
 
+static void kos_cleanup_tsk(kos_tcb_t *tcb)
+{
+	/* 確保したスタック領域を解放 */
+	if(tcb->ctsk.stk == NULL) {
+		kos_free_nolock(tcb->sp_top);
+	}
+
+#ifdef KOS_CFG_SPT_MTX
+	/* ロック獲得いているmtxのロックを解放する */
+	{
+		kos_list_t *l, *end;
+
+		end = &tcb->loc_mtx_list;
+		for(l = end->next; l != end; l = l->next) {
+			kos_mtx_cb_t *mtx_cb = (kos_mtx_cb_t *)((uint8_t *)l - offsetof(kos_mtx_cb_t, htsk_list));
+			kos_unl_mtx_core(mtx_cb);
+		}
+	}
+#endif
+}
+
 kos_er_t kos_del_tsk(kos_id_t tskid)
 {
 	kos_er_t er;
@@ -144,33 +173,29 @@ kos_er_t kos_del_tsk(kos_id_t tskid)
 #ifdef KOS_CFG_ENA_PAR_CHK
 	if(tskid > g_kos_max_tsk)
 		return KOS_E_ID;
+	if(tskid == KOS_TSK_SELF)
+		return KOS_E_OBJ;
 #endif
-	
+
 	er = KOS_E_OK;
-	
+
+	/* ここからはTCBの参照及び変更をするため、排他する */
 	kos_lock;
 
-	if(tskid == KOS_TSK_SELF) {
-		/* 自身で呼び出した場合は当然実行中なのでエラー */
-		er = KOS_E_OBJ;
+	/* TCBを取得 */
+	tcb = kos_get_tcb(tskid);
+	if(!tcb) {
+		er = KOS_E_NOEXS;
 		goto end;
-	} else {
-		tcb = kos_get_tcb(tskid);
-		if(!tcb) {
-			er = KOS_E_NOEXS;
-			goto end;
-		}
 	}
-	
+
 	/* 休止状態でなければ削除はできない。 */
 	if(tcb->st.tskstat != KOS_TTS_DMT) {
 		er = KOS_E_OBJ;
 		goto end;
 	}
 	
-	if(tcb->ctsk.stk == NULL) {
-		kos_free_nolock(tcb->sp_top);
-	}
+	kos_cleanup_tsk(tcb);
 
 	/* 登録解除 */
 	g_kos_tcb[tskid - 1] = KOS_NULL;
@@ -211,6 +236,7 @@ kos_er_t kos_act_tsk(kos_id_t tskid)
 	if(tcb->st.tskstat == KOS_TTS_DMT) {
 		kos_local_act_tsk_impl_nolock(tcb, KOS_FALSE);
 	} else {
+		/* 休止状態でなければ、キューイングする */
 		if(tcb->st.actcnt >= KOS_MAX_ACT_CNT) {
 			er = KOS_E_QOVR;
 		} else {
@@ -255,7 +281,7 @@ kos_er_t kos_iact_tsk(kos_id_t tskid)
 	}
 	
 end:
-	kos_unlock;
+	kos_iunlock;
 	
 	return er;
 }
@@ -368,6 +394,8 @@ void kos_exd_tsk(void)
 	tcb->st.tskstat = KOS_TTS_DMT;
 	kos_dbgprintf("tsk:%04X DMT\r\n", tcb->id);
 	
+	kos_cleanup_tsk(tcb);
+
 	/* 登録解除 */
 	g_kos_tcb[tcb->id - 1] = KOS_NULL;
 #ifdef KOS_CFG_ENA_ACRE_CONST_TIME_ID_SEARCH
@@ -382,6 +410,42 @@ end:
 
 kos_er_t kos_ter_tsk(kos_id_t tskid)
 {
+	kos_er_t er;
+	kos_tcb_t *tcb;
+	kos_uint_t actcnt;
+
+#ifdef KOS_CFG_ENA_PAR_CHK
+	if(tskid > g_kos_max_tsk)
+		return KOS_E_ID;
+	if(tskid == KOS_TSK_SELF)
+		return KOS_E_ILUSE;
+#endif
+
+	er = KOS_E_OK;
+
+	kos_lock;
+
+	tcb = kos_get_tcb(tskid);
+	if(!tcb) {
+		er = (kos_er_uint_t)KOS_E_NOEXS;
+		goto end;
+	}
+
+	kos_remove_from_wait_list_nolock(tcb);
+
+	tcb->st.tskstat = KOS_TTS_DMT;
+	kos_dbgprintf("tsk:%04X DMT\r\n", tcb->id);
+
+	actcnt = tcb->st.actcnt;
+	if(actcnt > 0) {
+		actcnt--;
+		tcb->st.actcnt = actcnt;
+		kos_local_act_tsk_impl_nolock(tcb, KOS_FALSE);
+	}
+end:
+	kos_unlock;
+
+	return er;
 }
 
 kos_er_t kos_chg_pri(kos_id_t tskid, kos_pri_t tskpri)
