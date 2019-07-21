@@ -20,8 +20,10 @@ void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx);
 
 static void kos_tsk_entry(kos_tcb_t *tcb)
 {
-	((void (*)(kos_vp_int_t))tcb->ctsk.task)(tcb->ctsk.exinf);
-	kos_ext_tsk();
+	for(;;) {
+		((void (*)(kos_vp_int_t))tcb->ctsk.task)(tcb->ctsk.exinf);
+		kos_ext_tsk();
+	}
 }
 
 void kos_local_act_tsk_impl_nolock(kos_tcb_t *tcb, kos_bool_t is_ctx)
@@ -375,10 +377,12 @@ void kos_ext_tsk(void)
 	if(actcnt > 0) {
 		actcnt--;
 		tcb->st.actcnt = actcnt;
-		kos_local_act_tsk_impl_nolock(tcb, KOS_FALSE);
-	} else {
-		kos_tsk_dsp();
 	}
+	if(actcnt > 0) {
+		kos_rdy_tsk_nolock(tcb);
+	}
+
+	kos_tsk_dsp();
 end:
 	kos_unlock;
 }

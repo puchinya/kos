@@ -14,7 +14,6 @@ typedef struct kos_memblk_chunk_t {
 	struct kos_memblk_chunk_t *next_free_chunk;
 } __attribute__((__packed__)) kos_memblk_chunk_t;
 
-#define HEAP_MAX_CHUNK_SIZE		((65535 >> 3))
 #define HEAP_MIN_CHUNK_SIZE		16
 #define HEAP_CHUNK_DATA_OFFSET	8
 
@@ -104,9 +103,6 @@ kos_vp_t kos_alloc_nolock(kos_size_t size)
 	uint32_t req_chunk_size;
 
 	req_chunk_size = HEAP_FIX_ALLOC_SIZE(size + HEAP_CHUNK_DATA_OFFSET);
-	if(req_chunk_size > HEAP_MAX_CHUNK_SIZE) {
-		return NULL;
-	}
 	if(req_chunk_size < HEAP_MIN_CHUNK_SIZE) {
 		req_chunk_size = HEAP_MIN_CHUNK_SIZE;
 	}
@@ -156,7 +152,7 @@ kos_vp_t kos_alloc_nolock(kos_size_t size)
 
 static kos_memblk_chunk_t *get_prev_chunk(kos_memblk_chunk_t *chunk)
 {
-	kos_memblk_chunk_t *prev_chunk = (kos_memblk_chunk_t *)((uint8_t *)chunk + HEAP_GET_PREV_CHUNK_SIZE(chunk));
+	kos_memblk_chunk_t *prev_chunk = (kos_memblk_chunk_t *)((uint8_t *)chunk - HEAP_GET_PREV_CHUNK_SIZE(chunk));
 	if((uint8_t *)prev_chunk < HEAP_CHUNK_MIN_ADDR) {
 		return NULL;
 	}
