@@ -214,7 +214,7 @@
 #define irot_rdq	kos_irot_rdq
 #define get_tid		kos_get_tid
 #define iget_tid	kos_iget_tid
-#define loc_cpu		koc_loc_cpu
+#define loc_cpu		kos_loc_cpu
 #define iloc_cpu	kos_iloc_cpu
 #define unl_cpu		kos_unl_cpu
 #define iunl_cpu	kos_iunl_cpu
